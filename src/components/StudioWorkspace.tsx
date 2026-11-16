@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { formatDzd } from '../data/algeriaMarketPrices';
 import { BRAND_LOGO_URL } from '../utils/assets';
+import { getFreePromoDaysRemaining, isFreePromoMonthActive } from '../utils/authStore';
 import {
   DRAWING_SPACE_PRESETS,
   FLOOR_STYLES,
@@ -884,25 +885,36 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
         )}
       </header>
 
-      {isGuestSession && (
-        <div className="px-3 sm:px-4 py-1.5 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-900 flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs shrink-0">
-          <div className="inline-flex items-center gap-1.5 sm:gap-2 text-amber-900 dark:text-amber-200 font-medium">
-            <Crown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+      {isFreePromoMonthActive() ? (
+        <div className="px-3 sm:px-4 py-1.5 bg-emerald-50 dark:bg-emerald-950/50 border-b border-emerald-200 dark:border-emerald-900 flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs shrink-0">
+          <div className="inline-flex items-center gap-1.5 sm:gap-2 text-emerald-900 dark:text-emerald-200 font-medium">
+            <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>
-              معاينة مؤقتة (تصميم واحد فقط) — اشترك في برو لفتح 200 تصميم.
+              الشهر المجاني المفتوح: جميع ميزات برو (من ورقة، كاميرا 2D، و200 تصميم) متاحة مجاناً للجميع — متبقي {getFreePromoDaysRemaining()} يوماً حتى 16 ديسمبر 2026.
             </span>
           </div>
-          {onOpenProUpgrade && (
-            <button
-              type="button"
-              onClick={onOpenProUpgrade}
-              className="inline-flex items-center gap-1 rounded-md bg-amber-600 hover:bg-amber-700 px-2.5 sm:px-3 py-1 text-[11px] font-semibold text-white transition-colors whitespace-nowrap shrink-0"
-            >
-              <Crown className="w-3 h-3" />
-              <span>اشتراك برو</span>
-            </button>
-          )}
         </div>
+      ) : (
+        isGuestSession && (
+          <div className="px-3 sm:px-4 py-1.5 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-900 flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs shrink-0">
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 text-amber-900 dark:text-amber-200 font-medium">
+              <Crown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>
+                معاينة مؤقتة (تصميم واحد فقط) — اشترك في برو لفتح 200 تصميم.
+              </span>
+            </div>
+            {onOpenProUpgrade && (
+              <button
+                type="button"
+                onClick={onOpenProUpgrade}
+                className="inline-flex items-center gap-1 rounded-md bg-amber-600 hover:bg-amber-700 px-2.5 sm:px-3 py-1 text-[11px] font-semibold text-white transition-colors whitespace-nowrap shrink-0"
+              >
+                <Crown className="w-3 h-3" />
+                <span>اشتراك برو</span>
+              </button>
+            )}
+          </div>
+        )
       )}
 
       {/* Main Workspace Area */}

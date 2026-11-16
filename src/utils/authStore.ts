@@ -39,6 +39,19 @@ export interface ActiveAuthSession {
 
 export const GUEST_MAX_DESIGNS = 1;
 
+// 1-month full free access period: Nov 16, 2026 -> Dec 16, 2026
+export const FREE_PROMO_START_MS = Date.UTC(2026, 10, 16, 0, 0, 0);
+export const FREE_PROMO_END_MS = Date.UTC(2026, 11, 16, 23, 59, 59);
+
+export function isFreePromoMonthActive(nowMs = Date.now()): boolean {
+  return nowMs >= FREE_PROMO_START_MS && nowMs <= FREE_PROMO_END_MS;
+}
+
+export function getFreePromoDaysRemaining(nowMs = Date.now()): number {
+  if (!isFreePromoMonthActive(nowMs)) return 0;
+  return Math.max(1, Math.ceil((FREE_PROMO_END_MS - nowMs) / 86400000));
+}
+
 // Optional static list if you want to commit custom-password users into GitHub directly
 export const BUILTIN_SUBSCRIBERS: SubscriberAccount[] = [];
 

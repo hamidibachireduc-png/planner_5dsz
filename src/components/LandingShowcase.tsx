@@ -25,7 +25,11 @@ import {
   X,
 } from 'lucide-react';
 import { BRAND_LOGO_URL, TEMPLATE_IMAGES } from '../utils/assets';
-import { ActiveAuthSession } from '../utils/authStore';
+import {
+  ActiveAuthSession,
+  getFreePromoDaysRemaining,
+  isFreePromoMonthActive,
+} from '../utils/authStore';
 import { formatDzd } from '../data/algeriaMarketPrices';
 import {
   CatalogItemDef,
@@ -414,42 +418,70 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
       </header>
 
       <main id="top" className="max-w-[1200px] mx-auto px-4 sm:px-6">
-        {/* Temporary Public Preview & Pro Upgrade Alert Banner */}
-        {isGuestSession && (
-          <div className="mt-6 rounded-xl border border-amber-300 dark:border-amber-800/80 bg-amber-50/90 dark:bg-amber-950/35 px-5 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        {/* Free 1-Month Promo or Temporary Public Preview & Pro Upgrade Alert Banner */}
+        {isFreePromoMonthActive() ? (
+          <div className="mt-6 rounded-xl border border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/90 dark:bg-emerald-950/35 px-5 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-2 text-sm font-bold text-amber-900 dark:text-amber-300">
-                <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <div className="inline-flex items-center gap-2 text-sm font-bold text-emerald-900 dark:text-emerald-300">
+                <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span>
-                  الدخول المؤقت والمعاينة للعامة —{' '}
-                  {guestDesignsUsed >= 1 || projects.length >= 1
-                    ? 'تم استهلاك التصميم الوحيد المتاح (1 / 1)'
-                    : 'متاح لك إنشاء تصميم واحد مجاني للتجربة'}
+                  عرض خاص: التطبيق مجاني بالكامل لمدة شهر (متبقي {getFreePromoDaysRemaining()} يوماً حتى 16 ديسمبر 2026)
                 </span>
               </div>
-              <p className="text-xs text-amber-900/85 dark:text-amber-200/85 leading-relaxed">
-                للاستمرار في إنشاء تصاميم جديدة غير محدودة، فتح جميع التصاميم الجزائرية الـ 200، والحصول على اسم مستخدم ورقم سري دائم، يرجى الاشتراك في <strong>نسخة برو</strong> (1,000 د.ج شهرياً).
+              <p className="text-xs text-emerald-900/85 dark:text-emerald-200/85 leading-relaxed">
+                جميع التصاميم الـ 200، مشاريع غير محدودة، التصميم من ورقة مرسومة، ومعاينة الكاميرا 2D في الفضاء الحقيقي مفتوحة مجاناً للجميع طوال فترة العرض.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowProSubscribeModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 px-4 py-2 text-xs font-semibold text-white transition-colors whitespace-nowrap"
-              >
-                <Crown className="w-3.5 h-3.5" />
-                <span>اشترك في نسخة برو</span>
-              </button>
-              <button
-                type="button"
-                onClick={onSignOut}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/70 dark:border-amber-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>تسجيل الدخول بحساب مشترك</span>
-              </button>
-            </div>
+            {isGuestSession && (
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/70 dark:border-emerald-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>دخول بحساب مشترك أو مدير</span>
+                </button>
+              </div>
+            )}
           </div>
+        ) : (
+          isGuestSession && (
+            <div className="mt-6 rounded-xl border border-amber-300 dark:border-amber-800/80 bg-amber-50/90 dark:bg-amber-950/35 px-5 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-2 text-sm font-bold text-amber-900 dark:text-amber-300">
+                  <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>
+                    الدخول المؤقت والمعاينة للعامة —{' '}
+                    {guestDesignsUsed >= 1 || projects.length >= 1
+                      ? 'تم استهلاك التصميم الوحيد المتاح (1 / 1)'
+                      : 'متاح لك إنشاء تصميم واحد مجاني للتجربة'}
+                  </span>
+                </div>
+                <p className="text-xs text-amber-900/85 dark:text-amber-200/85 leading-relaxed">
+                  للاستمرار في إنشاء تصاميم جديدة غير محدودة، فتح جميع التصاميم الجزائرية الـ 200، والحصول على اسم مستخدم ورقم سري دائم، يرجى الاشتراك في <strong>نسخة برو</strong> (1,000 د.ج شهرياً).
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowProSubscribeModal(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 px-4 py-2 text-xs font-semibold text-white transition-colors whitespace-nowrap"
+                >
+                  <Crown className="w-3.5 h-3.5" />
+                  <span>اشترك في نسخة برو</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/70 dark:border-amber-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>تسجيل الدخول بحساب مشترك</span>
+                </button>
+              </div>
+            </div>
+          )
         )}
 
         {/* Hero 2-Column Split */}
@@ -981,11 +1013,13 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
                 مشاريعي المحفوظة والحفظ داخل الجهاز
               </h2>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                {isGuestSession
-                  ? 'أنت تتصفح عبر الدخول المؤقت للعامة (مسموح بإنشاء تصميم واحد فقط). اشترك في نسخة برو للاستفادة من مشاريع غير محدودة.'
-                  : `مرحباً ${sessionUser.displayName} (${sessionUser.username}) — ${
-                      isUserProActive ? 'باقة برو مفعّلة بالكامل' : 'الخطة المجانية'
-                    }. احفظ مشاريعك في المتصفح أو نزّلها داخل جهازك.`}
+                {isFreePromoMonthActive()
+                  ? 'الشهر المجاني المفتوح مفعّل: يمكنك إنشاء وحفظ عدد غير محدود من المشاريع والوصول لجميع التصاميم والأدوات مجاناً حتى 16 ديسمبر 2026.'
+                  : isGuestSession
+                    ? 'أنت تتصفح عبر الدخول المؤقت للعامة (مسموح بإنشاء تصميم واحد فقط). اشترك في نسخة برو للاستفادة من مشاريع غير محدودة.'
+                    : `مرحباً ${sessionUser.displayName} (${sessionUser.username}) — ${
+                        isUserProActive ? 'باقة برو مفعّلة بالكامل' : 'الخطة المجانية'
+                      }. احفظ مشاريعك في المتصفح أو نزّلها داخل جهازك.`}
               </p>
             </div>
 

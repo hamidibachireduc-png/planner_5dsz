@@ -32,6 +32,7 @@ import {
   deleteLocalProject,
   deleteSubscriberOnServer,
   incrementGuestDesignsUsed,
+  isFreePromoMonthActive,
   loadActiveSession,
   loadFacebookUrl,
   loadGuestDesignsUsed,
@@ -84,10 +85,13 @@ export default function App() {
   const [activeProject, setActiveProject] = useState<ActiveProjectSession | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const freePromoActive = isFreePromoMonthActive();
   const isAdminAuthorized = authSession?.role === 'admin';
   const isGuestSession = authSession?.role === 'guest';
   const hasReachedGuestLimit = Boolean(
-    isGuestSession && (guestDesignsUsed >= GUEST_MAX_DESIGNS || projects.length >= GUEST_MAX_DESIGNS)
+    !freePromoActive &&
+      isGuestSession &&
+      (guestDesignsUsed >= GUEST_MAX_DESIGNS || projects.length >= GUEST_MAX_DESIGNS)
   );
 
   const matchedSubscriber =
@@ -98,7 +102,8 @@ export default function App() {
       : undefined;
 
   const isUserProActive = Boolean(
-    isAdminAuthorized ||
+    freePromoActive ||
+      isAdminAuthorized ||
       (matchedSubscriber ? matchedSubscriber.proActive && matchedSubscriber.active : authSession?.proActive)
   );
 
@@ -153,7 +158,7 @@ export default function App() {
   };
 
   const consumeGuestDesignSlotOrAlert = (reason: string): boolean => {
-    if (!isGuestSession) return true;
+    if (!isGuestSession || freePromoActive) return true;
     if (hasReachedGuestLimit) {
       setGuestLimitReason(reason);
       return false;
@@ -253,7 +258,7 @@ export default function App() {
 
   const handleSaveActiveProject = async (title: string, plan: FloorPlanData) => {
     if (!activeProject) return;
-    if (isGuestSession && !activeProject.isExisting && projects.length >= GUEST_MAX_DESIGNS) {
+    if (!freePromoActive && isGuestSession && !activeProject.isExisting && projects.length >= GUEST_MAX_DESIGNS) {
       setGuestLimitReason(
         'يمكن حفظ تصميم واحد فقط في الدخول المؤقت للعامة. اشترك في نسخة برو لحفظ مشاريع غير محدودة.'
       );
@@ -300,6 +305,7 @@ export default function App() {
   ) => {
     if (importedList.length === 0) return;
     if (
+      !freePromoActive &&
       isGuestSession &&
       (hasReachedGuestLimit || importedList.length > GUEST_MAX_DESIGNS)
     ) {
@@ -308,7 +314,7 @@ export default function App() {
       );
       return;
     }
-    if (isGuestSession) {
+    if (isGuestSession && !freePromoActive) {
       incrementGuestDesignsUsed();
       setGuestDesignsUsed(loadGuestDesignsUsed());
     }
