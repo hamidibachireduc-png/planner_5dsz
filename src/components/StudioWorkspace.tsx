@@ -4,6 +4,7 @@ import {
   Box,
   Calculator,
   Check,
+  ChevronDown,
   Columns2,
   Copy,
   Crown,
@@ -113,6 +114,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   const [activeSpacePreset, setActiveSpacePreset] = useState<DrawingSpacePreset>(
     DRAWING_SPACE_PRESETS[0]
   );
+  const [spaceMenuOpen, setSpaceMenuOpen] = useState(false);
   const [selection, setSelection] = useState<SelectionTarget>(null);
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<'catalog' | 'calculator'>('catalog');
@@ -299,6 +301,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
       setActiveSpacePreset(preset);
       setSelection({ kind: 'room', id: roomId });
       setActiveTool('select');
+      setSpaceMenuOpen(false);
     },
     [floorPlan, updateFloorPlan]
   );
@@ -883,8 +886,8 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
         {viewMode !== '3d' && (
           <aside className="hidden lg:flex w-72 shrink-0 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181B20] flex-col min-h-0 z-20">
             {/* Drafting Tools Section */}
-            <div className="p-3 border-b border-slate-200 dark:border-slate-800">
-              <div className="flex items-center justify-between mb-2">
+            <div className="p-2.5 border-b border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                   أدوات الرسم الهندسي
                 </span>
@@ -902,11 +905,11 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                   <span>محاذاة</span>
                 </button>
               </div>
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-6 gap-1">
                 {(
                   [
                     { id: 'select', label: 'تحديد', Icon: MousePointer },
-                    { id: 'room', label: 'غرفة/فضاء', Icon: PlusSquare },
+                    { id: 'room', label: 'غرفة', Icon: PlusSquare },
                     { id: 'wall', label: 'جدار', Icon: PenTool },
                     { id: 'door', label: 'باب', Icon: DoorOpen },
                     { id: 'window', label: 'نافذة', Icon: Square },
@@ -916,7 +919,12 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                   <button
                     key={id}
                     type="button"
-                    onClick={() => setActiveTool(id)}
+                    onClick={() => {
+                      setActiveTool(id);
+                      if (id !== 'room') {
+                        setSpaceMenuOpen(false);
+                      }
+                    }}
                     className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${
                       activeTool === id
                         ? 'bg-blue-600 text-white shadow-sm'
@@ -929,46 +937,63 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                 ))}
               </div>
 
-              {/* Space Type Presets (Salon, Hall, Kitchen, Garage, Balcony...) */}
-              <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
-                  <span className="font-semibold">نوع الفضاء (رسم أو إدراج)</span>
-                  <span className="font-mono-nums">
-                    {activeSpacePreset.defaultWidth}×{activeSpacePreset.defaultDepth}م
-                  </span>
+              {/* Space Type Dropdown (Auto-expands when room tool is active; auto-hides when inactive) */}
+              <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+                <div className="flex items-center justify-between gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setSpaceMenuOpen((v) => !v)}
+                    className="flex items-center justify-between gap-1.5 flex-1 min-w-0 px-2 py-1 rounded-md text-[11px] font-medium bg-slate-50 dark:bg-slate-800/70 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition-colors"
+                    title="إظهار أو إخفاء خيارات نوع الفضاء"
+                  >
+                    <span className="truncate">
+                      نوع الفضاء: <strong className="text-blue-700 dark:text-blue-300">{activeSpacePreset.label.split(' ')[0]}</strong>
+                    </span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 shrink-0 text-slate-400 transition-transform ${
+                        activeTool === 'room' || spaceMenuOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => insertPresetRoom(activeSpacePreset)}
+                    className="px-2 py-1 rounded-md border border-blue-200 dark:border-blue-800/80 bg-blue-50/80 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-[10px] font-semibold text-blue-700 dark:text-blue-300 whitespace-nowrap shrink-0 transition-colors"
+                    title={`إدراج ${activeSpacePreset.label} مباشرة على المخطط`}
+                  >
+                    + إدراج
+                  </button>
                 </div>
-                <div className="grid grid-cols-3 gap-1">
-                  {DRAWING_SPACE_PRESETS.map((preset) => {
-                    const isSelectedPreset = activeSpacePreset.id === preset.id;
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          setActiveSpacePreset(preset);
+
+                {(activeTool === 'room' || spaceMenuOpen) && (
+                  <div className="mt-1.5 space-y-1.5">
+                    <select
+                      value={activeSpacePreset.id}
+                      onChange={(e) => {
+                        const chosen = DRAWING_SPACE_PRESETS.find((p) => p.id === e.target.value);
+                        if (chosen) {
+                          setActiveSpacePreset(chosen);
                           setActiveTool('room');
-                        }}
-                        className={`px-1 py-1 rounded-md text-[10px] font-medium truncate border transition-colors ${
-                          isSelectedPreset && activeTool === 'room'
-                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300'
-                            : isSelectedPreset
-                              ? 'border-blue-300 dark:border-blue-800 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
-                              : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/70'
-                        }`}
-                        title={`${preset.label} (${preset.defaultWidth}×${preset.defaultDepth} م)`}
-                      >
-                        {preset.label.split(' ')[0]}
-                      </button>
-                    );
-                  })}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => insertPresetRoom(activeSpacePreset)}
-                  className="w-full py-1.5 px-2 rounded-lg border border-blue-200 dark:border-blue-800/80 bg-blue-50/80 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-[11px] font-semibold text-blue-700 dark:text-blue-300 transition-colors"
-                >
-                  + إدراج {activeSpacePreset.label} تلقائياً
-                </button>
+                        }
+                      }}
+                      aria-label="نوع الفضاء (رسم أو إدراج)"
+                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-slate-800 dark:text-slate-100 focus:border-blue-500 focus:outline-none"
+                    >
+                      {DRAWING_SPACE_PRESETS.map((preset) => (
+                        <option key={preset.id} value={preset.id}>
+                          {preset.label} ({preset.defaultWidth}×{preset.defaultDepth} م)
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => insertPresetRoom(activeSpacePreset)}
+                      className="w-full py-1.5 px-2 rounded-lg border border-blue-200 dark:border-blue-800/80 bg-blue-50/80 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-[11px] font-semibold text-blue-700 dark:text-blue-300 transition-colors"
+                    >
+                      + إدراج {activeSpacePreset.label} تلقائياً
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1003,41 +1028,39 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
 
             {sidebarTab === 'catalog' ? (
               <>
-                {/* Furniture Catalog Search & Categories */}
-                <div className="p-3 border-b border-slate-200 dark:border-slate-800 space-y-2.5">
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={catalogQuery}
-                      onChange={(e) => {
-                        setCatalogQuery(e.target.value);
-                        setCatalogVisibleLimit(36);
-                      }}
-                      placeholder={`ابحث في ${FURNITURE_CATALOG.length} تصميماً فاخراً...`}
-                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 pr-8 pl-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {FURNITURE_CATEGORIES.map((cat) => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => {
-                          setCatalogCategory(cat.id);
+                {/* Furniture Catalog Search & Category Dropdown */}
+                <div className="p-2.5 border-b border-slate-200 dark:border-slate-800 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <div className="relative flex-1 min-w-0">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={catalogQuery}
+                        onChange={(e) => {
+                          setCatalogQuery(e.target.value);
                           setCatalogVisibleLimit(36);
                         }}
-                        className={`px-2 py-1 rounded-md text-[11px] font-medium transition-colors whitespace-nowrap shrink-0 ${
-                          catalogCategory === cat.id
-                            ? 'bg-slate-900 dark:bg-blue-600 text-white'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                        }`}
-                      >
-                        {cat.label}
-                      </button>
-                    ))}
+                        placeholder={`بحث (${FURNITURE_CATALOG.length})...`}
+                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 pr-7 pl-2 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+                    <select
+                      value={catalogCategory}
+                      onChange={(e) => {
+                        setCatalogCategory(e.target.value as FurnitureCategory | 'all');
+                        setCatalogVisibleLimit(36);
+                      }}
+                      aria-label="تصنيف الأثاث والأجهزة"
+                      className="w-28 shrink-0 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-1.5 py-1.5 text-[11px] font-medium text-slate-800 dark:text-slate-100 focus:border-blue-500 focus:outline-none"
+                    >
+                      {FURNITURE_CATEGORIES.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <label className="flex items-center justify-between gap-2 text-[11px] text-slate-600 dark:text-slate-300 cursor-pointer pt-0.5">
+                  <label className="flex items-center justify-between gap-2 text-[11px] text-slate-600 dark:text-slate-300 cursor-pointer">
                     <span className="inline-flex items-center gap-1.5">
                       <input
                         type="checkbox"
@@ -1305,7 +1328,10 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                 sketchUnderlay={sketchUnderlay}
                 onSelect={setSelection}
                 onChangeFloorPlan={updateFloorPlan}
-                onToolResetToSelect={() => setActiveTool('select')}
+                onToolResetToSelect={() => {
+                  setActiveTool('select');
+                  setSpaceMenuOpen(false);
+                }}
               />
 
               {/* Compact Underlay Controls when a Paper Sketch Underlay is active */}
@@ -2195,7 +2221,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                     {(
                       [
                         { id: 'select', label: 'تحديد', Icon: MousePointer },
-                        { id: 'room', label: 'غرفة/فضاء', Icon: PlusSquare },
+                        { id: 'room', label: 'غرفة', Icon: PlusSquare },
                         { id: 'wall', label: 'جدار', Icon: PenTool },
                         { id: 'door', label: 'باب', Icon: DoorOpen },
                         { id: 'window', label: 'نافذة', Icon: Square },
@@ -2207,7 +2233,12 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                         type="button"
                         onClick={() => {
                           setActiveTool(id);
-                          setMobileSheet(null);
+                          if (id === 'room') {
+                            setSpaceMenuOpen(true);
+                          } else {
+                            setSpaceMenuOpen(false);
+                            setMobileSheet(null);
+                          }
                         }}
                         className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-medium min-h-[54px] transition-colors ${
                           activeTool === id
@@ -2221,47 +2252,70 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                     ))}
                   </div>
 
-                  {/* Mobile Space Presets */}
-                  <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                    <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
-                      <span className="font-semibold">اختر نوع الفضاء (سحب أو إدراج مباشر)</span>
-                      <span className="font-mono-nums text-[11px]">
-                        {activeSpacePreset.defaultWidth}×{activeSpacePreset.defaultDepth}م
+                  {/* Mobile Space Type Dropdown (Auto-expands when room tool is active) */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setSpaceMenuOpen((v) => !v)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200"
+                    >
+                      <span>
+                        نوع الفضاء (رسم أو إدراج):{' '}
+                        <strong className="text-blue-600 dark:text-blue-400">
+                          {activeSpacePreset.label}
+                        </strong>
                       </span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {DRAWING_SPACE_PRESETS.map((preset) => {
-                        const isSelectedPreset = activeSpacePreset.id === preset.id;
-                        return (
+                      <ChevronDown
+                        className={`w-4 h-4 transition-transform ${
+                          activeTool === 'room' || spaceMenuOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+
+                    {(activeTool === 'room' || spaceMenuOpen) && (
+                      <div className="space-y-2">
+                        <select
+                          value={activeSpacePreset.id}
+                          onChange={(e) => {
+                            const chosen = DRAWING_SPACE_PRESETS.find((p) => p.id === e.target.value);
+                            if (chosen) {
+                              setActiveSpacePreset(chosen);
+                              setActiveTool('room');
+                            }
+                          }}
+                          aria-label="نوع الفضاء (رسم أو إدراج)"
+                          className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-xs font-medium text-slate-800 dark:text-slate-100 focus:border-blue-500 focus:outline-none"
+                        >
+                          {DRAWING_SPACE_PRESETS.map((preset) => (
+                            <option key={preset.id} value={preset.id}>
+                              {preset.label} ({preset.defaultWidth}×{preset.defaultDepth} م)
+                            </option>
+                          ))}
+                        </select>
+                        <div className="grid grid-cols-2 gap-2">
                           <button
-                            key={preset.id}
                             type="button"
                             onClick={() => {
-                              setActiveSpacePreset(preset);
                               setActiveTool('room');
                               setMobileSheet(null);
                             }}
-                            className={`px-2 py-2 rounded-lg text-[11px] font-medium border truncate transition-colors ${
-                              isSelectedPreset
-                                ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300'
-                                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-slate-700 dark:text-slate-200'
-                            }`}
+                            className="py-2.5 px-3 rounded-xl border border-blue-600 text-blue-700 dark:text-blue-300 text-xs font-semibold"
                           >
-                            {preset.label}
+                            رسم بالسحب على المخطط
                           </button>
-                        );
-                      })}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        insertPresetRoom(activeSpacePreset);
-                        setMobileSheet(null);
-                      }}
-                      className="w-full py-2.5 px-3 rounded-xl bg-blue-600 text-white text-xs font-semibold shadow-sm"
-                    >
-                      + إدراج {activeSpacePreset.label} تلقائياً على المخطط
-                    </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              insertPresetRoom(activeSpacePreset);
+                              setMobileSheet(null);
+                            }}
+                            className="py-2.5 px-3 rounded-xl bg-blue-600 text-white text-xs font-semibold shadow-sm"
+                          >
+                            + إدراج تلقائي
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
