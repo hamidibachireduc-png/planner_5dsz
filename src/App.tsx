@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { User } from 'firebase/auth';
+import { AdminPanelModal } from './components/AdminPanelModal';
+import { AuthGateScreen } from './components/AuthGateScreen';
 import { LandingShowcase } from './components/LandingShowcase';
 import { StudioWorkspace } from './components/StudioWorkspace';
 import {
@@ -14,30 +16,50 @@ import {
   createBlankFloorPlan,
 } from './data/catalog';
 import {
-  ADMIN_EMAIL,
+  LocalClientSession,
+  adminCreateUserAccountInFirestore,
+  adminUpdateUserAccountInFirestore,
   createProOrderInFirestore,
   deleteGuestProject,
   deleteProjectFromFirestore,
+  isAdminEmail,
+  loadAdminPanelSession,
   loadFacebookUrl,
   loadGuestProOrders,
   loadGuestProjects,
   loadLocalBrandName,
+  loadLocalClientSession,
+  loadLocalUserAccounts,
   loadUserStudioSettings,
   sanitizeId,
+  saveAdminPanelSession,
   saveFacebookUrl,
   saveGuestProOrder,
   saveGuestProject,
   saveLocalBrandName,
+  saveLocalClientSession,
   saveProjectToFirestore,
   saveUserStudioSettings,
   signInWithGoogle,
   signOutUser,
   subscribeAuth,
   subscribeProOrders,
+  subscribeUserAccounts,
   subscribeUserProjects,
+  syncUserAccountInFirestore,
+  updateLocalProOrderStatus,
+  updateLocalUserAccount,
   updateProOrderStatusInFirestore,
+  upsertLocalUserAccount,
+  verifyAdminPanelCredentials,
 } from './firebase';
-import { FloorPlanData, ProSubscriptionOrder, ProjectRecord } from './types/planner';
+import {
+  FloorPlanData,
+  ProSubscriptionOrder,
+  ProjectRecord,
+  UserAccountRecord,
+  UserAccountStatus,
+} from './types/planner';
 
 interface ActiveSession {
   projectId: string;
@@ -50,6 +72,11 @@ interface ActiveSession {
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [clientSession, setClientSession] = useState<LocalClientSession | null>(() =>
+    loadLocalClientSession()
+  );
+  const [adminSession, setAdminSession] = useState<boolean>(() => loadAdminPanelSession());
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   const [brandName, setBrandName] = useState<string>(() => loadLocalBrandName());
   const [isDarkTheme, setIsDarkTheme] = useState<boolean>(false);
@@ -57,12 +84,59 @@ export default function App() {
   const [projects, setProjects] = useState<ProjectRecord[]>(() => loadGuestProjects());
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [proOrders, setProOrders] = useState<ProSubscriptionOrder[]>(() => loadGuestProOrders());
+  const [cloudAccounts, setCloudAccounts] = useState<UserAccountRecord[]>([]);
+  const [localAccounts, setLocalAccounts] = useState<UserAccountRecord[]>(() =>
+    loadLocalUserAccounts()
+  );
   const [facebookUrl, setFacebookUrl] = useState<string>(() => loadFacebookUrl());
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const isAdmin = Boolean(user?.email && user.emailVerified && user.email === ADMIN_EMAIL);
-  const isUserProActive = isAdmin || proOrders.some((o) => o.status === 'approved');
+  const isAdmin = Boolean(user?.email && user.emailVerified && isAdminEmail(user.email));
+  const isAdminAuthorized = isAdmin || adminSession;
+  const isAuthenticated = Boolean(user || clientSession || adminSession);
+
+  // Merge cloud + local accounts cleanly (deduped by id or email)
+  const mergedAccounts = useMemo(() => {
+    const map = new Map<string, UserAccountRecord>();
+    for (const acc of localAccounts) {
+      map.set(acc.id, acc);
+    }
+    for (const acc of cloudAccounts) {
+      map.set(acc.id, acc);
+    }
+    return Array.from(map.values()).sort(
+      (a, b) => (b.updatedAtMs || 0) - (a.updatedAtMs || 0)
+    );
+  }, [cloudAccounts, localAccounts]);
+
+  const currentAccount = useMemo(() => {
+    if (user) {
+      return mergedAccounts.find((a) => a.id === user.uid || a.ownerId === user.uid) || null;
+    }
+    if (clientSession) {
+      return (
+        mergedAccounts.find(
+          (a) =>
+            a.id === clientSession.id ||
+            (clientSession.email &&
+              a.email &&
+              a.email.toLowerCase() === clientSession.email.toLowerCase())
+        ) || null
+      );
+    }
+    return null;
+  }, [user, clientSession, mergedAccounts]);
+
+  const isAccountSuspended = Boolean(
+    !isAdminAuthorized && currentAccount && currentAccount.accountStatus === 'suspended'
+  );
+
+  const isUserProActive = Boolean(
+    isAdminAuthorized ||
+      currentAccount?.proActive ||
+      proOrders.some((o) => o.status === 'approved')
+  );
 
   // Sync dark mode class on <html>
   useEffect(() => {
@@ -85,16 +159,21 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // Load Firestore projects & user settings when authenticated, else guest local projects
+  // Load Firestore projects, user settings, orders, and accounts when authenticated
   useEffect(() => {
     if (!authReady) return;
     if (!user) {
       setProjects(loadGuestProjects());
+      setCloudAccounts([]);
       setLoadingProjects(false);
       return;
     }
 
     setLoadingProjects(true);
+    void syncUserAccountInFirestore(user).catch(() => {
+      // Non-fatal if offline or transient
+    });
+
     void loadUserStudioSettings(user.uid)
       .then((settings) => {
         if (settings?.brandName) {
@@ -129,15 +208,28 @@ export default function App() {
       }
     );
 
+    const unsubAccounts = subscribeUserAccounts(
+      user.uid,
+      isAdmin,
+      (accounts) => {
+        setCloudAccounts(accounts);
+      },
+      () => {
+        // Ignore transient account listener errors
+      }
+    );
+
     return () => {
       unsubProjects();
       unsubOrders();
+      unsubAccounts();
     };
   }, [user, authReady, isAdmin]);
 
   useEffect(() => {
     if (authReady && !user) {
       setProOrders(loadGuestProOrders());
+      setLocalAccounts(loadLocalUserAccounts());
     }
   }, [authReady, user]);
 
@@ -160,11 +252,65 @@ export default function App() {
       await signInWithGoogle();
     } catch {
       setErrorMsg('تم إلغاء تسجيل الدخول أو تعذر الاتصال بخدمة Google.');
+      throw new Error('Google sign-in failed');
     }
   };
 
+  const handleClientLogin = (payload: { displayName: string; email: string; phone: string }) => {
+    const existing = loadLocalUserAccounts().find(
+      (a) =>
+        payload.email &&
+        a.email &&
+        a.email.toLowerCase() === payload.email.toLowerCase()
+    );
+    const id = existing?.id || sanitizeId(`client_${Date.now()}`);
+    const session: LocalClientSession = {
+      id,
+      displayName: payload.displayName,
+      email: payload.email,
+      phone: payload.phone,
+    };
+    saveLocalClientSession(session);
+    setClientSession(session);
+
+    const updated = upsertLocalUserAccount({
+      id,
+      ownerId: id,
+      displayName: payload.displayName,
+      email: payload.email,
+      phone: payload.phone,
+      accountStatus: existing?.accountStatus || 'active',
+      proActive: existing?.proActive || false,
+      proPlan: existing?.proPlan || 'free',
+    });
+    setLocalAccounts(updated);
+  };
+
+  const handleAdminLogin = (username: string, password: string): boolean => {
+    const ok = verifyAdminPanelCredentials(username, password);
+    if (!ok) return false;
+    saveAdminPanelSession(true);
+    setAdminSession(true);
+    setShowAdminPanel(true);
+    return true;
+  };
+
+  const handleAdminLogout = () => {
+    saveAdminPanelSession(false);
+    setAdminSession(false);
+    setShowAdminPanel(false);
+  };
+
   const handleSignOut = async () => {
-    await signOutUser();
+    setActiveSession(null);
+    saveLocalClientSession(null);
+    setClientSession(null);
+    saveAdminPanelSession(false);
+    setAdminSession(false);
+    setShowAdminPanel(false);
+    if (user) {
+      await signOutUser();
+    }
   };
 
   const handleOpenNewBlank = () => {
@@ -367,9 +513,108 @@ export default function App() {
   };
 
   const handleUpdateProOrderStatus = async (orderId: string, status: 'approved' | 'rejected') => {
-    if (!user || !isAdmin) return;
-    await updateProOrderStatusInFirestore(orderId, status);
+    if (!isAdminAuthorized) return;
+    const targetOrder = proOrders.find((o) => o.id === orderId);
+    if (isAdmin) {
+      await updateProOrderStatusInFirestore(orderId, status);
+      if (status === 'approved' && targetOrder?.ownerId && targetOrder.ownerId !== 'guest') {
+        const matchingAcc = cloudAccounts.find(
+          (a) => a.id === targetOrder.ownerId || a.ownerId === targetOrder.ownerId
+        );
+        if (matchingAcc) {
+          await adminUpdateUserAccountInFirestore(matchingAcc.id, {
+            accountStatus: 'active',
+            proActive: true,
+            proPlan: targetOrder.planType,
+          }).catch(() => {
+            // Non-fatal if account document is managed separately
+          });
+        }
+      }
+    } else {
+      setProOrders(updateLocalProOrderStatus(orderId, status));
+      if (status === 'approved' && targetOrder?.ownerId) {
+        setLocalAccounts(
+          updateLocalUserAccount(targetOrder.ownerId, {
+            accountStatus: 'active',
+            proActive: true,
+            proPlan: targetOrder.planType,
+          })
+        );
+      }
+    }
   };
+
+  const handleAdminUpdateAccount = async (
+    accountId: string,
+    patch: {
+      accountStatus: UserAccountStatus;
+      proActive: boolean;
+      proPlan: 'free' | 'monthly' | 'annual';
+      notes?: string;
+    }
+  ) => {
+    if (!isAdminAuthorized) return;
+    const inCloud = cloudAccounts.some((a) => a.id === accountId);
+    if (isAdmin && inCloud) {
+      await adminUpdateUserAccountInFirestore(accountId, patch);
+    } else {
+      setLocalAccounts(updateLocalUserAccount(accountId, patch));
+    }
+  };
+
+  const handleAdminCreateAccount = async (input: {
+    email: string;
+    displayName: string;
+    phone: string;
+    accountStatus: UserAccountStatus;
+    proActive: boolean;
+    proPlan: 'free' | 'monthly' | 'annual';
+    notes?: string;
+  }) => {
+    if (!isAdminAuthorized) return;
+    if (isAdmin) {
+      await adminCreateUserAccountInFirestore(input);
+    } else {
+      const id = sanitizeId(`acc_${Date.now()}`);
+      setLocalAccounts(
+        upsertLocalUserAccount({
+          id,
+          ownerId: id,
+          email: input.email,
+          displayName: input.displayName,
+          phone: input.phone,
+          accountStatus: input.accountStatus,
+          proActive: input.proActive,
+          proPlan: input.proPlan,
+          notes: input.notes,
+        })
+      );
+    }
+  };
+
+  if (!isAuthenticated || isAccountSuspended) {
+    return (
+      <AuthGateScreen
+        brandName={brandName}
+        isDarkTheme={isDarkTheme}
+        authReady={authReady}
+        suspendedAccount={
+          isAccountSuspended && currentAccount
+            ? {
+                displayName: currentAccount.displayName,
+                email: currentAccount.email,
+              }
+            : null
+        }
+        onToggleTheme={() => setIsDarkTheme((d) => !d)}
+        onGoogleSignIn={handleSignIn}
+        onClientLogin={handleClientLogin}
+        onAdminLogin={handleAdminLogin}
+        onSignOut={handleSignOut}
+      />
+    );
+  }
 
   return (
     <>
@@ -404,6 +649,8 @@ export default function App() {
           user={user}
           authReady={authReady}
           isAdmin={isAdmin}
+          isAdminAuthorized={isAdminAuthorized}
+          activeClientName={clientSession?.displayName || (isAdminAuthorized ? 'المدير (حميدي البشير)' : null)}
           isUserProActive={isUserProActive}
           projects={projects}
           loadingProjects={loadingProjects}
@@ -414,6 +661,7 @@ export default function App() {
           onUpdateBrandName={handleUpdateBrandName}
           onSignIn={handleSignIn}
           onSignOut={handleSignOut}
+          onOpenAdminPanel={() => setShowAdminPanel(true)}
           onOpenNewBlank={handleOpenNewBlank}
           onOpenTemplate={handleOpenTemplate}
           onOpenWithCatalogItem={handleOpenWithCatalogItem}
@@ -426,6 +674,24 @@ export default function App() {
           onUpdateProOrderStatus={handleUpdateProOrderStatus}
         />
       )}
+
+      <AdminPanelModal
+        isOpen={showAdminPanel}
+        brandName={brandName}
+        isAdminAuthorized={isAdminAuthorized}
+        isCloudAdminSignedIn={isAdmin}
+        accounts={mergedAccounts}
+        orders={proOrders}
+        facebookUrl={facebookUrl}
+        onClose={() => setShowAdminPanel(false)}
+        onAdminLogin={handleAdminLogin}
+        onAdminLogout={handleAdminLogout}
+        onGoogleSyncSignIn={handleSignIn}
+        onUpdateAccount={handleAdminUpdateAccount}
+        onCreateAccount={handleAdminCreateAccount}
+        onUpdateOrderStatus={handleUpdateProOrderStatus}
+        onSaveFacebookUrl={handleSaveFacebookUrl}
+      />
     </>
   );
 }

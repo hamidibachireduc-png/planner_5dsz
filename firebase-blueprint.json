@@ -181,6 +181,73 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Registered user account managed in the admin activation dashboard.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "ownerId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "accountStatus": {
+          "type": "string",
+          "enum": ["pending", "active", "suspended"]
+        },
+        "proActive": {
+          "type": "boolean"
+        },
+        "proPlan": {
+          "type": "string",
+          "enum": ["free", "monthly", "annual"]
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "email",
+        "displayName",
+        "phone",
+        "accountStatus",
+        "proActive",
+        "proPlan",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -201,6 +268,12 @@
         "$ref": "#/entities/ProSubscriptionOrder"
       },
       "description": "Stores BaridiMob and Flexy (+10%) Pro subscription activation orders."
+    },
+    "/userAccounts/{accountId}": {
+      "schema": {
+        "$ref": "#/entities/UserAccount"
+      },
+      "description": "Stores user accounts and admin activation/Pro status flags."
     }
   }
 }

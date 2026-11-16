@@ -26,6 +26,7 @@ import {
   PRO_PLANS,
   WHATSAPP_INTL,
 } from './ProSubscriptionSection';
+import { BRAND_LOGO_URL } from '../utils/assets';
 
 interface ProSubscribeModalProps {
   isOpen: boolean;
@@ -163,7 +164,7 @@ export const ProSubscribeModal: React.FC<ProSubscribeModalProps> = ({
         <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <img
-              src="/assets/aistudio/image_8fd000e2.png"
+              src={BRAND_LOGO_URL}
               alt={brandName}
               className="w-10 h-10 rounded-full object-cover border border-amber-600/40 shrink-0"
             />

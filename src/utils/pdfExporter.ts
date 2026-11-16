@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { FLOOR_STYLES, FURNITURE_CATEGORIES, computeFloorPlanMetrics } from '../data/catalog';
 import { FloorPlanData, FurnitureItem, UnitType } from '../types/planner';
+import { BRAND_LOGO_URL } from './assets';
 
 export interface PdfExportOptions {
   title: string;
@@ -1001,7 +1002,7 @@ export async function exportFloorPlanToPdf(options: PdfExportOptions): Promise<v
     }
   }
 
-  const logo = await loadLogoImage('/assets/aistudio/image_8fd000e2.png');
+  const logo = await loadLogoImage(BRAND_LOGO_URL);
   const { floorPlan, brandName, title } = options;
   const metrics = computeFloorPlanMetrics(floorPlan);
 

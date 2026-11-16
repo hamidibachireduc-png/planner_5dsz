@@ -17,11 +17,13 @@ import {
   Moon,
   Plus,
   Search,
+  ShieldCheck,
   Sun,
   Trash2,
   Upload,
   X,
 } from 'lucide-react';
+import { BRAND_LOGO_URL, TEMPLATE_IMAGES } from '../utils/assets';
 import { formatDzd } from '../data/algeriaMarketPrices';
 import {
   CatalogItemDef,
@@ -51,6 +53,8 @@ interface LandingShowcaseProps {
   user: User | null;
   authReady: boolean;
   isAdmin: boolean;
+  isAdminAuthorized: boolean;
+  activeClientName?: string | null;
   isUserProActive: boolean;
   projects: ProjectRecord[];
   loadingProjects: boolean;
@@ -61,6 +65,7 @@ interface LandingShowcaseProps {
   onUpdateBrandName: (name: string) => Promise<void>;
   onSignIn: () => Promise<void>;
   onSignOut: () => Promise<void>;
+  onOpenAdminPanel: () => void;
   onOpenNewBlank: () => void;
   onOpenTemplate: (template: StarterTemplate) => void;
   onOpenWithCatalogItem: (item: CatalogItemDef) => void;
@@ -110,6 +115,8 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
   user,
   authReady,
   isAdmin,
+  isAdminAuthorized,
+  activeClientName,
   isUserProActive,
   projects,
   loadingProjects,
@@ -120,6 +127,7 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
   onUpdateBrandName,
   onSignIn,
   onSignOut,
+  onOpenAdminPanel,
   onOpenNewBlank,
   onOpenTemplate,
   onOpenWithCatalogItem,
@@ -249,7 +257,7 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
             className="inline-flex items-center gap-2.5 font-display text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0"
           >
             <img
-              src="/assets/aistudio/image_8fd000e2.png"
+              src={BRAND_LOGO_URL}
               alt={brandName}
               className="w-9 h-9 rounded-full object-cover border border-amber-600/40 shrink-0"
             />
@@ -343,7 +351,7 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
             <div className="lg:col-span-7">
               <div className="h-full min-h-[320px] lg:min-h-[420px] rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 relative">
                 <ImageWithFallback
-                  src="/src/assets/images/hero_modern_villa_1794819435369.jpg"
+                  src={TEMPLATE_IMAGES.heroModernVilla}
                   alt="تصميم فيلا حديثة بإضاءة طبيعية وإطلالة على الحديقة"
                   className="w-full h-full object-cover"
                 />
@@ -787,32 +795,39 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                 {user
                   ? `متصل بحساب ${user.email || user.displayName} — المزامنة السحابية مفعّلة مع إمكانية تنزيل مشاريعك إلى جهازك.`
+                  : activeClientName
+                  ? `مرحباً ${activeClientName} — يمكنك حفظ مشاريعك داخل جهازك أو ربط حساب Google للمزامنة السحابية.`
                   : 'احفظ مشاريعك كملفات داخل جهازك واستوردها في أي وقت، أو سجّل الدخول للمزامنة السحابية.'}
               </p>
             </div>
 
-            <div className="flex items-center gap-3 self-start sm:self-auto">
-              {authReady && (
-                user ? (
-                  <button
-                    type="button"
-                    onClick={onSignOut}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span>تسجيل الخروج</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={onSignIn}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
-                  >
-                    <LogIn className="w-3.5 h-3.5 text-blue-600" />
-                    <span>دخول بحساب Google</span>
-                  </button>
-                )
+            <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={onOpenAdminPanel}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50/70 dark:bg-blue-950/30 px-3.5 py-2 text-xs font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors whitespace-nowrap shrink-0"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>{isAdminAuthorized ? 'لوحة الإدارة (تفعيل الحسابات)' : 'دخول الإدارة'}</span>
+              </button>
+              {authReady && !user && (
+                <button
+                  type="button"
+                  onClick={onSignIn}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-blue-600" />
+                  <span>ربط حساب Google</span>
+                </button>
               )}
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>تسجيل الخروج</span>
+              </button>
               <button
                 type="button"
                 onClick={onOpenNewBlank}
@@ -1060,7 +1075,7 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181B20] p-6 sm:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-center gap-4 max-w-xl">
               <img
-                src="/assets/aistudio/image_8fd000e2.png"
+                src={BRAND_LOGO_URL}
                 alt={brandName}
                 className="w-20 h-20 rounded-full object-cover border-2 border-amber-600/40 shrink-0"
               />
@@ -1108,7 +1123,7 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
         <div className="max-w-[1200px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400">
           <div className="inline-flex items-center gap-2 font-display font-bold text-sm text-slate-800 dark:text-slate-200">
             <img
-              src="/assets/aistudio/image_8fd000e2.png"
+              src={BRAND_LOGO_URL}
               alt={brandName}
               className="w-7 h-7 rounded-full object-cover border border-amber-600/40 shrink-0"
             />
@@ -1136,6 +1151,13 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
               className="hover:text-slate-900 dark:hover:text-white cursor-pointer"
             >
               اشتراك برو
+            </button>
+            <button
+              type="button"
+              onClick={onOpenAdminPanel}
+              className="hover:text-slate-900 dark:hover:text-white cursor-pointer"
+            >
+              لوحة الإدارة
             </button>
             <a href="#brand" className="hover:text-slate-900 dark:hover:text-white">
               الهوية

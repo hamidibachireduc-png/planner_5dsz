@@ -23,7 +23,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && request.auth.token.email == 'bachirofsat@gmail.com';
+      return isSignedIn() && (request.auth.token.email == 'bachirofsat@gmail.com' || request.auth.token.email == 'bachirofst@gmail.com');
     }
 
     function isValidProOrder(data) {
@@ -83,6 +83,22 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidUserAccount(data) {
+      return data.keys().hasAll(['id', 'ownerId', 'email', 'displayName', 'phone', 'accountStatus', 'proActive', 'proPlan', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'ownerId', 'email', 'displayName', 'phone', 'accountStatus', 'proActive', 'proPlan', 'notes', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && isValidId(data.ownerId)
+        && data.email is string && data.email.size() <= 160
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.phone is string && data.phone.size() <= 30
+        && data.accountStatus is string && (data.accountStatus == 'pending' || data.accountStatus == 'active' || data.accountStatus == 'suspended')
+        && data.proActive is bool
+        && data.proPlan is string && (data.proPlan == 'free' || data.proPlan == 'monthly' || data.proPlan == 'annual')
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 240))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     match /projects/{projectId} {
       allow get: if isSignedIn() && isValidId(projectId) && existing().ownerId == request.auth.uid;
       allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
@@ -136,13 +152,55 @@ service cloud.firestore {
         && isValidId(orderId)
         && isValidProOrder(incoming())
         && isAdmin()
-        && existing().status == 'pending'
+        && (existing().status == 'pending' || isAdmin())
         && incoming().ownerId == existing().ownerId
         && incoming().id == existing().id
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
       allow delete: if isSignedIn() && isValidId(orderId) && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    match /userAccounts/{accountId} {
+      allow get: if isSignedIn() && isValidId(accountId) && (accountId == request.auth.uid || existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && isValidId(accountId)
+        && isValidUserAccount(incoming())
+        && incoming().id == accountId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            accountId == request.auth.uid
+            && incoming().ownerId == request.auth.uid
+            && incoming().proActive == false
+            && incoming().proPlan == 'free'
+            && incoming().accountStatus == 'active'
+          )
+        );
+      allow update: if isSignedIn()
+        && isValidId(accountId)
+        && isValidUserAccount(incoming())
+        && incoming().id == existing().id
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (
+            isAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['accountStatus', 'proActive', 'proPlan', 'notes', 'displayName', 'phone', 'updatedAt'])
+          )
+          || (
+            existing().ownerId == request.auth.uid
+            && incoming().proActive == existing().proActive
+            && incoming().proPlan == existing().proPlan
+            && incoming().accountStatus == existing().accountStatus
+            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phone', 'email', 'updatedAt'])
+          )
+        );
+      allow delete: if isSignedIn() && isValidId(accountId) && isAdmin();
     }
   }
 }

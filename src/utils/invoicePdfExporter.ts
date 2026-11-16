@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { formatDzd, formatMillionCentimes } from '../data/algeriaMarketPrices';
 import { InvoiceCustomerInfo } from '../types/planner';
+import { BRAND_LOGO_URL } from './assets';
 
 export interface InvoicePdfRow {
   section: 'furniture' | 'construction' | 'custom';
@@ -234,7 +235,7 @@ export async function exportInvoiceToPdf(payload: InvoicePdfPayload): Promise<vo
     }
   }
 
-  const logo = await loadLogo('/assets/aistudio/image_8fd000e2.png');
+  const logo = await loadLogo(BRAND_LOGO_URL);
   const pages: HTMLCanvasElement[] = [];
 
   let sheet = newSheet();

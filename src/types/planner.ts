@@ -249,6 +249,22 @@ export interface ProSubscriptionOrder {
   createdAtMs?: number;
 }
 
+export type UserAccountStatus = 'pending' | 'active' | 'suspended';
+
+export interface UserAccountRecord {
+  id: string;
+  ownerId: string;
+  email: string;
+  displayName: string;
+  phone: string;
+  accountStatus: UserAccountStatus;
+  proActive: boolean;
+  proPlan: 'free' | 'monthly' | 'annual';
+  notes?: string;
+  createdAtMs?: number;
+  updatedAtMs?: number;
+}
+
 export type SelectionTarget =
   | { kind: 'room'; id: string }
   | { kind: 'wall'; id: string }

@@ -29,6 +29,8 @@ import {
   ProSubscriptionOrder,
   ProjectRecord,
   UnitType,
+  UserAccountRecord,
+  UserAccountStatus,
   UserStudioSettings,
 } from './types/planner';
 
@@ -367,8 +369,117 @@ export function saveLocalBrandName(name: string): void {
 }
 
 export const ADMIN_EMAIL = 'bachirofsat@gmail.com';
+export const ADMIN_EMAILS = ['bachirofsat@gmail.com', 'bachirofst@gmail.com'];
+export const ADMIN_PANEL_USERNAME = 'bachirofst@gmail.com';
+const ADMIN_PANEL_PASS = 'hamidibachir1975';
+
+export function isAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const normalized = email.trim().toLowerCase();
+  return ADMIN_EMAILS.includes(normalized);
+}
+
+export function verifyAdminPanelCredentials(username: string, password: string): boolean {
+  const normalizedUser = username.trim().toLowerCase();
+  return ADMIN_EMAILS.includes(normalizedUser) && password === ADMIN_PANEL_PASS;
+}
+
 const LOCAL_PRO_ORDERS_KEY = 'bachir5d_guest_pro_orders_v1';
 const LOCAL_FB_LINK_KEY = 'bachir5d_facebook_url_v1';
+const LOCAL_ADMIN_SESSION_KEY = 'bachir5d_admin_session_v1';
+const LOCAL_CLIENT_SESSION_KEY = 'bachir5d_client_session_v1';
+const LOCAL_USER_ACCOUNTS_KEY = 'bachir5d_user_accounts_v1';
+
+export interface LocalClientSession {
+  id: string;
+  displayName: string;
+  email: string;
+  phone: string;
+}
+
+export function loadAdminPanelSession(): boolean {
+  try {
+    return localStorage.getItem(LOCAL_ADMIN_SESSION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function saveAdminPanelSession(active: boolean): void {
+  try {
+    if (active) localStorage.setItem(LOCAL_ADMIN_SESSION_KEY, '1');
+    else localStorage.removeItem(LOCAL_ADMIN_SESSION_KEY);
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+export function loadLocalClientSession(): LocalClientSession | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_CLIENT_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as LocalClientSession;
+    return parsed && parsed.id && parsed.displayName ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveLocalClientSession(session: LocalClientSession | null): void {
+  try {
+    if (session) localStorage.setItem(LOCAL_CLIENT_SESSION_KEY, JSON.stringify(session));
+    else localStorage.removeItem(LOCAL_CLIENT_SESSION_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function loadLocalUserAccounts(): UserAccountRecord[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_USER_ACCOUNTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as UserAccountRecord[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function upsertLocalUserAccount(account: UserAccountRecord): UserAccountRecord[] {
+  const current = loadLocalUserAccounts();
+  const idx = current.findIndex(
+    (a) =>
+      a.id === account.id ||
+      (account.email && a.email && a.email.toLowerCase() === account.email.toLowerCase())
+  );
+  const now = Date.now();
+  const next =
+    idx >= 0
+      ? current.map((a, i) => (i === idx ? { ...a, ...account, updatedAtMs: now } : a))
+      : [{ ...account, createdAtMs: account.createdAtMs || now, updatedAtMs: now }, ...current];
+  localStorage.setItem(LOCAL_USER_ACCOUNTS_KEY, JSON.stringify(next));
+  return next;
+}
+
+export function updateLocalUserAccount(
+  accountId: string,
+  patch: Partial<Pick<UserAccountRecord, 'accountStatus' | 'proActive' | 'proPlan' | 'notes'>>
+): UserAccountRecord[] {
+  const next = loadLocalUserAccounts().map((a) =>
+    a.id === accountId ? { ...a, ...patch, updatedAtMs: Date.now() } : a
+  );
+  localStorage.setItem(LOCAL_USER_ACCOUNTS_KEY, JSON.stringify(next));
+  return next;
+}
+
+export function updateLocalProOrderStatus(
+  orderId: string,
+  status: 'approved' | 'rejected'
+): ProSubscriptionOrder[] {
+  const next = loadGuestProOrders().map((o) => (o.id === orderId ? { ...o, status } : o));
+  localStorage.setItem(LOCAL_PRO_ORDERS_KEY, JSON.stringify(next));
+  return next;
+}
 
 export function loadFacebookUrl(): string {
   return localStorage.getItem(LOCAL_FB_LINK_KEY) || 'https://www.facebook.com/';
@@ -487,5 +598,151 @@ export async function updateProOrderStatusInFirestore(
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function syncUserAccountInFirestore(user: User): Promise<void> {
+  const accountId = sanitizeId(user.uid);
+  const path = `userAccounts/${accountId}`;
+  const displayName = (user.displayName || user.email?.split('@')[0] || 'مستخدم').trim().slice(0, 120);
+  const email = (user.email || '').trim().slice(0, 160);
+
+  try {
+    const ref = doc(db, 'userAccounts', accountId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        id: accountId,
+        ownerId: user.uid,
+        email,
+        displayName,
+        phone: (user.phoneNumber || '').slice(0, 30),
+        accountStatus: 'active',
+        proActive: false,
+        proPlan: 'free',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      await updateDoc(ref, {
+        displayName,
+        email,
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export function subscribeUserAccounts(
+  userId: string,
+  isAdminUser: boolean,
+  onData: (accounts: UserAccountRecord[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  const path = 'userAccounts';
+  const q = isAdminUser
+    ? query(collection(db, path))
+    : query(collection(db, path), where('ownerId', '==', userId));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items: UserAccountRecord[] = snapshot.docs.map((d) => {
+        const raw = d.data();
+        const createdTs = raw.createdAt as { toMillis?: () => number } | undefined;
+        const updatedTs = raw.updatedAt as { toMillis?: () => number } | undefined;
+        const status: UserAccountStatus =
+          raw.accountStatus === 'suspended' || raw.accountStatus === 'pending'
+            ? raw.accountStatus
+            : 'active';
+        const plan: 'free' | 'monthly' | 'annual' =
+          raw.proPlan === 'monthly' || raw.proPlan === 'annual' ? raw.proPlan : 'free';
+        return {
+          id: String(raw.id || d.id),
+          ownerId: String(raw.ownerId),
+          email: String(raw.email || ''),
+          displayName: String(raw.displayName || 'مستخدم'),
+          phone: String(raw.phone || ''),
+          accountStatus: status,
+          proActive: Boolean(raw.proActive),
+          proPlan: plan,
+          notes: raw.notes ? String(raw.notes) : undefined,
+          createdAtMs: createdTs && typeof createdTs.toMillis === 'function' ? createdTs.toMillis() : Date.now(),
+          updatedAtMs: updatedTs && typeof updatedTs.toMillis === 'function' ? updatedTs.toMillis() : Date.now(),
+        };
+      });
+      items.sort((a, b) => (b.updatedAtMs || 0) - (a.updatedAtMs || 0));
+      onData(items);
+    },
+    (error) => {
+      try {
+        handleFirestoreError(error, OperationType.LIST, path);
+      } catch (e) {
+        if (onError && e instanceof Error) onError(e);
+      }
+    }
+  );
+}
+
+export async function adminUpdateUserAccountInFirestore(
+  accountId: string,
+  patch: {
+    accountStatus: UserAccountStatus;
+    proActive: boolean;
+    proPlan: 'free' | 'monthly' | 'annual';
+    notes?: string;
+  }
+): Promise<void> {
+  const cleanId = sanitizeId(accountId);
+  const path = `userAccounts/${cleanId}`;
+  try {
+    const updatePayload: Record<string, unknown> = {
+      accountStatus: patch.accountStatus,
+      proActive: patch.proActive,
+      proPlan: patch.proPlan,
+      updatedAt: serverTimestamp(),
+    };
+    if (typeof patch.notes === 'string') {
+      updatePayload.notes = patch.notes.slice(0, 240);
+    }
+    await updateDoc(doc(db, 'userAccounts', cleanId), updatePayload);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function adminCreateUserAccountInFirestore(input: {
+  email: string;
+  displayName: string;
+  phone: string;
+  accountStatus: UserAccountStatus;
+  proActive: boolean;
+  proPlan: 'free' | 'monthly' | 'annual';
+  notes?: string;
+}): Promise<string> {
+  const accountId = sanitizeId(`acc_${Date.now()}`);
+  const path = `userAccounts/${accountId}`;
+  try {
+    const payload: Record<string, unknown> = {
+      id: accountId,
+      ownerId: accountId,
+      email: input.email.trim().slice(0, 160),
+      displayName: input.displayName.trim().slice(0, 120) || 'مستخدم',
+      phone: input.phone.trim().slice(0, 30),
+      accountStatus: input.accountStatus,
+      proActive: input.proActive,
+      proPlan: input.proPlan,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    if (input.notes && input.notes.trim()) {
+      payload.notes = input.notes.trim().slice(0, 240);
+    }
+    await setDoc(doc(db, 'userAccounts', accountId), payload);
+    return accountId;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
   }
 }

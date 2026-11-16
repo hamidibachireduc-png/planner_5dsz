@@ -6,6 +6,7 @@ import {
   RoomFloorStyle,
 } from '../types/planner';
 import { LUXURY_ALGERIAN_CATALOG_ITEMS } from './luxuryCatalog500';
+import { TEMPLATE_IMAGES } from '../utils/assets';
 
 export type { CatalogItemDef };
 
@@ -1007,7 +1008,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     areaSqm: 96,
     roomsCount: 4,
     description: 'تصميم متوازن يضم صالة مفتوحة مع جزيرة مطبخ، غرفتي نوم وحمام رئيسي.',
-    imageUrl: '/src/assets/images/template_apartment_render_1794819435474.jpg',
+    imageUrl: TEMPLATE_IMAGES.apartmentRender,
     floorPlan: {
       wallHeight: 2.8,
       unit: 'm',
@@ -1069,7 +1070,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     areaSqm: 54,
     roomsCount: 2,
     description: 'مساحة ذكية مفتوحة تدمج النوم والمعيشة ومكتب العمل مع نوافذ بانورامية.',
-    imageUrl: '/src/assets/images/template_studio_loft_1794819436069.jpg',
+    imageUrl: TEMPLATE_IMAGES.studioLoft,
     floorPlan: {
       wallHeight: 3.0,
       unit: 'm',
@@ -1116,7 +1117,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     areaSqm: 148,
     roomsCount: 5,
     description: 'فيلا رحبة تحيط بفناء مركزي مضيء مع صالون ضيافة، مطبخ مفتوح وجناح نوم.',
-    imageUrl: '/src/assets/images/template_courtyard_villa_1794819437388.jpg',
+    imageUrl: TEMPLATE_IMAGES.courtyardVilla,
     floorPlan: {
       wallHeight: 3.1,
       unit: 'm',
@@ -1173,7 +1174,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     areaSqm: 130,
     roomsCount: 6,
     description: 'مخطط عائلي متكامل يضم صالون استقبال، مطبخاً ببار حديث، جناحاً رئيسياً، غرفة أطفال وحماماً واسعاً.',
-    imageUrl: '/src/assets/images/template_f4_apartment_1794822632615.jpg',
+    imageUrl: TEMPLATE_IMAGES.f4Apartment,
     floorPlan: {
       wallHeight: 2.9,
       unit: 'm',
@@ -1244,7 +1245,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     areaSqm: 168,
     roomsCount: 6,
     description: 'تصميم دوبلكس فاخر يجمع صالة بسقف عالٍ ومدفأة، صالة طعام، مطبخاً ببار، جناح ملابس وتراس بيرغولا.',
-    imageUrl: '/src/assets/images/template_duplex_villa_1794822634220.jpg',
+    imageUrl: TEMPLATE_IMAGES.duplexVilla,
     floorPlan: {
       wallHeight: 3.2,
       unit: 'm',
@@ -1307,7 +1308,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     areaSqm: 114,
     roomsCount: 4,
     description: 'لوفت مفتوح بإطلالة زجاجية شاملة، يضم بيانو كلاسيكياً، ركن قراءة، بار ضيافة وجناح سبا.',
-    imageUrl: '/src/assets/images/template_penthouse_loft_1794822632866.jpg',
+    imageUrl: TEMPLATE_IMAGES.penthouseLoft,
     floorPlan: {
       wallHeight: 3.3,
       unit: 'm',
@@ -1359,7 +1360,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     areaSqm: 84,
     roomsCount: 4,
     description: 'شقة عملية للمصممين والعمل عن بُعد تضم مكتباً هندسياً بشاشتين، ركن قهوة، غرفة نوم وحماماً متكاملاً.',
-    imageUrl: '/src/assets/images/template_home_office_apt_1794822635409.jpg',
+    imageUrl: TEMPLATE_IMAGES.homeOfficeApt,
     floorPlan: {
       wallHeight: 2.85,
       unit: 'm',
@@ -1413,7 +1414,7 @@ export const STARTER_TEMPLATES: StarterTemplate[] = [
     areaSqm: 196,
     roomsCount: 7,
     description: 'فيلا عائلية واسعة تضم مجلساً بفاصل مشربية، قاعة طعام ببوفيه، مطبخاً، جناحاً ملكياً، غرفة أطفال وحديقة.',
-    imageUrl: '/src/assets/images/template_corner_villa_1794822635443.jpg',
+    imageUrl: TEMPLATE_IMAGES.cornerVilla,
     floorPlan: {
       wallHeight: 3.2,
       unit: 'm',

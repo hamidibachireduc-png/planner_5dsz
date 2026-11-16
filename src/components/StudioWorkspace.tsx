@@ -30,6 +30,7 @@ import {
   X,
 } from 'lucide-react';
 import { formatDzd } from '../data/algeriaMarketPrices';
+import { BRAND_LOGO_URL } from '../utils/assets';
 import {
   FLOOR_STYLES,
   FURNITURE_CATALOG,
@@ -402,7 +403,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
           </button>
 
           <img
-            src="/assets/aistudio/image_8fd000e2.png"
+            src={BRAND_LOGO_URL}
             alt={brandName}
             className="w-8 h-8 rounded-full object-cover border border-amber-600/40 shrink-0 hidden sm:block"
           />
