@@ -1,24 +1,33 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { FLOOR_STYLES } from '../data/catalog';
 import { FloorPlanData } from '../types/planner';
 
 interface TemplateBlueprintPreviewProps {
   floorPlan: FloorPlanData;
   className?: string;
+  showRoomLabels?: boolean;
 }
 
 export const TemplateBlueprintPreview: React.FC<TemplateBlueprintPreviewProps> = React.memo(
-  ({ floorPlan, className = '' }) => {
+  ({ floorPlan, className = '', showRoomLabels = false }) => {
+    const rawId = useId();
+    const gridPatternId = `tplGrid_${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
     const xs: number[] = [];
     const zs: number[] = [];
 
-    floorPlan.rooms.forEach((r) => {
+    (floorPlan?.rooms || []).forEach((r) => {
       xs.push(r.x, r.x + r.width);
       zs.push(r.z, r.z + r.depth);
     });
-    floorPlan.walls.forEach((w) => {
+    (floorPlan?.walls || []).forEach((w) => {
       xs.push(w.x1, w.x2);
       zs.push(w.z1, w.z2);
+    });
+    (floorPlan?.furniture || []).forEach((f) => {
+      const halfSpan = Math.max(f.width, f.depth) / 2;
+      xs.push(f.x - halfSpan, f.x + halfSpan);
+      zs.push(f.z - halfSpan, f.z + halfSpan);
     });
 
     const minX = xs.length > 0 ? Math.min(...xs) : -6;
@@ -26,13 +35,17 @@ export const TemplateBlueprintPreview: React.FC<TemplateBlueprintPreviewProps> =
     const minZ = zs.length > 0 ? Math.min(...zs) : -5;
     const maxZ = zs.length > 0 ? Math.max(...zs) : 5;
 
-    const pad = 1.1;
+    const pad = showRoomLabels ? 1.4 : 1.1;
     const vx = minX - pad;
     const vy = minZ - pad;
     const vw = Math.max(4, maxX - minX + pad * 2);
     const vh = Math.max(4, maxZ - minZ + pad * 2);
 
     const styleMap = new Map(FLOOR_STYLES.map((s) => [s.id, s.previewColor]));
+    const rooms = floorPlan?.rooms || [];
+    const walls = floorPlan?.walls || [];
+    const openings = floorPlan?.openings || [];
+    const furniture = floorPlan?.furniture || [];
 
     return (
       <div
@@ -46,7 +59,7 @@ export const TemplateBlueprintPreview: React.FC<TemplateBlueprintPreviewProps> =
         >
           <defs>
             <pattern
-              id="tplGrid"
+              id={gridPatternId}
               width="1"
               height="1"
               patternUnits="userSpaceOnUse"
@@ -55,7 +68,7 @@ export const TemplateBlueprintPreview: React.FC<TemplateBlueprintPreviewProps> =
                 d="M 1 0 L 0 0 0 1"
                 fill="none"
                 stroke="currentColor"
-                strokeOpacity="0.06"
+                strokeOpacity="0.07"
                 strokeWidth="0.04"
               />
             </pattern>
@@ -66,13 +79,15 @@ export const TemplateBlueprintPreview: React.FC<TemplateBlueprintPreviewProps> =
             y={vy}
             width={vw}
             height={vh}
-            fill="url(#tplGrid)"
+            fill={`url(#${gridPatternId})`}
             className="text-slate-900 dark:text-slate-200"
           />
 
           {/* Rooms */}
-          {floorPlan.rooms.map((room) => {
+          {rooms.map((room) => {
             const fillHex = styleMap.get(room.floorStyle) || '#C59B6D';
+            const area = (room.width * room.depth).toFixed(1);
+            const labelFontSize = Math.max(0.26, Math.min(0.45, Math.min(room.width, room.depth) * 0.16));
             return (
               <g key={room.id}>
                 <rect
@@ -82,15 +97,40 @@ export const TemplateBlueprintPreview: React.FC<TemplateBlueprintPreviewProps> =
                   height={room.depth}
                   fill={fillHex}
                   fillOpacity={0.28}
-                  stroke="rgba(15,23,42,0.16)"
+                  stroke="rgba(15,23,42,0.18)"
                   strokeWidth={0.04}
                 />
+                {showRoomLabels && room.width >= 1.5 && room.depth >= 1.2 && (
+                  <g>
+                    <text
+                      x={room.x + room.width / 2}
+                      y={room.z + room.depth / 2 - labelFontSize * 0.25}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize={labelFontSize}
+                      fontWeight="700"
+                      className="fill-slate-800 dark:fill-slate-100 select-none"
+                    >
+                      {room.name}
+                    </text>
+                    <text
+                      x={room.x + room.width / 2}
+                      y={room.z + room.depth / 2 + labelFontSize * 0.9}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize={labelFontSize * 0.8}
+                      className="fill-slate-500 dark:fill-slate-400 select-none"
+                    >
+                      {`${room.width.toFixed(1)}×${room.depth.toFixed(1)}م (${area}م²)`}
+                    </text>
+                  </g>
+                )}
               </g>
             );
           })}
 
           {/* Furniture Silhouettes */}
-          {floorPlan.furniture.map((item) => {
+          {furniture.map((item) => {
             const deg = (-item.rotation * 180) / Math.PI;
             return (
               <rect
@@ -110,7 +150,7 @@ export const TemplateBlueprintPreview: React.FC<TemplateBlueprintPreviewProps> =
           })}
 
           {/* Walls */}
-          {floorPlan.walls.map((wall) => (
+          {walls.map((wall) => (
             <line
               key={wall.id}
               x1={wall.x1}
@@ -125,8 +165,8 @@ export const TemplateBlueprintPreview: React.FC<TemplateBlueprintPreviewProps> =
           ))}
 
           {/* Doors & Windows */}
-          {floorPlan.openings.map((op) => {
-            const wall = floorPlan.walls.find((w) => w.id === op.wallId);
+          {openings.map((op) => {
+            const wall = walls.find((w) => w.id === op.wallId);
             if (!wall) return null;
             const dx = wall.x2 - wall.x1;
             const dz = wall.z2 - wall.z1;

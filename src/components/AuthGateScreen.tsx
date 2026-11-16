@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { ProSubscriptionOrder } from '../types/planner';
 import { BRAND_LOGO_URL, TEMPLATE_IMAGES } from '../utils/assets';
+import { GUEST_MAX_DESIGNS } from '../utils/authStore';
 import { ProSubscribeModal } from './ProSubscribeModal';
 import { FLEXY_PHONE, WHATSAPP_INTL } from './ProSubscriptionSection';
 
@@ -21,8 +22,10 @@ interface AuthGateScreenProps {
   brandName: string;
   facebookUrl: string;
   isDarkTheme: boolean;
+  guestDesignsUsed: number;
   onToggleTheme: () => void;
   onLogin: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  onGuestLogin: () => void;
   onSubmitProOrder: (
     order: Omit<ProSubscriptionOrder, 'id' | 'ownerId' | 'status' | 'createdAtMs'>
   ) => Promise<void>;
@@ -32,8 +35,10 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({
   brandName,
   facebookUrl,
   isDarkTheme,
+  guestDesignsUsed,
   onToggleTheme,
   onLogin,
+  onGuestLogin,
   onSubmitProOrder,
 }) => {
   const [mode, setMode] = useState<'subscriber' | 'admin'>('subscriber');
@@ -234,35 +239,64 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({
               </button>
             </form>
 
-            {/* Helpful Request Credentials Box for New Visitors */}
+            {/* Temporary Public Preview & Helpful Pro CTA for New Visitors */}
             {mode === 'subscriber' && (
-              <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800 space-y-3">
-                <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                  ليس لديك اسم مستخدم ورقم سري بعد؟
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                  اشترك في باقة برو (1,000 د.ج شهرياً عبر بريدي موب أو فليكسي +10%) وسيقوم المدير بإرسال اسم المستخدم والرقم السري الخاص بك مباشرة.
-                </p>
-                <div className="flex flex-wrap items-center gap-2.5">
+              <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800 space-y-4">
+                {/* Temporary Guest Preview Box */}
+                <div className="rounded-xl border border-amber-300/80 dark:border-amber-800/70 bg-amber-50/70 dark:bg-amber-950/25 p-4 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-300">
+                      <Eye className="w-4 h-4 shrink-0" />
+                      <span>دخول مؤقت ومعاينة للعامة (تصميم واحد فقط)</span>
+                    </div>
+                    <span className="text-[11px] font-mono-nums font-semibold text-amber-800 dark:text-amber-400">
+                      {guestDesignsUsed >= GUEST_MAX_DESIGNS
+                        ? 'تم استهلاك الحصة المجانية'
+                        : 'متاح: 1 تصميم'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-900/85 dark:text-amber-200/85 leading-relaxed">
+                    يمكنك الدخول مؤقتاً لمعاينة المنصة ومكتبة الأثاث وحاسبة الأسعار وإنشاء{' '}
+                    <strong>تصميم واحد فقط</strong> للتجربة. لإنشاء تصاميم متعددة وفتح كل القوالب الـ 200 يلزم الاشتراك في <strong>نسخة برو</strong>.
+                  </p>
                   <button
                     type="button"
-                    onClick={() => setShowProModal(true)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-blue-600 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 px-3 py-2 text-xs font-semibold transition-colors"
+                    onClick={onGuestLogin}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-amber-600 bg-white dark:bg-slate-900 hover:bg-amber-600 hover:text-white dark:hover:bg-amber-600 text-amber-900 dark:text-amber-300 px-3.5 py-2 text-xs font-semibold transition-colors"
                   >
-                    <Crown className="w-3.5 h-3.5" />
-                    <span>تعليمات الاشتراك برو</span>
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>دخول مؤقت ومعاينة المنصة الآن</span>
                   </button>
-                  <a
-                    href={`https://wa.me/${WHATSAPP_INTL}?text=${encodeURIComponent(
-                      `السلام عليكم ${brandName}، أريد الحصول على اسم مستخدم ورقم سري للدخول إلى المنصة.`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-2 text-xs font-semibold text-white transition-colors"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" />
-                    <span>اطلب حساباً عبر واتساب ({FLEXY_PHONE})</span>
-                  </a>
+                </div>
+
+                <div className="space-y-2.5">
+                  <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    ليس لديك اسم مستخدم ورقم سري بعد؟
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    اشترك في باقة برو (1,000 د.ج شهرياً عبر بريدي موب أو فليكسي +10%) وسيقوم المدير بإرسال اسم المستخدم والرقم السري الخاص بك مباشرة.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowProModal(true)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-blue-600 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 px-3 py-2 text-xs font-semibold transition-colors"
+                    >
+                      <Crown className="w-3.5 h-3.5" />
+                      <span>تعليمات الاشتراك برو</span>
+                    </button>
+                    <a
+                      href={`https://wa.me/${WHATSAPP_INTL}?text=${encodeURIComponent(
+                        `السلام عليكم ${brandName}، أريد الحصول على اسم مستخدم ورقم سري للدخول إلى المنصة.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-2 text-xs font-semibold text-white transition-colors"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>اطلب حساباً عبر واتساب ({FLEXY_PHONE})</span>
+                    </a>
+                  </div>
                 </div>
               </div>
             )}

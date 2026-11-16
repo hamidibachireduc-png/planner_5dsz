@@ -4,9 +4,11 @@
  */
 
 import { useEffect, useState } from 'react';
+import { Crown, LogOut, X } from 'lucide-react';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { AuthGateScreen } from './components/AuthGateScreen';
 import { LandingShowcase } from './components/LandingShowcase';
+import { ProSubscribeModal } from './components/ProSubscribeModal';
 import { StudioWorkspace } from './components/StudioWorkspace';
 import {
   CatalogItemDef,
@@ -17,12 +19,16 @@ import {
 import { FloorPlanData, ProSubscriptionOrder, ProjectRecord } from './types/planner';
 import {
   ActiveAuthSession,
+  GUEST_MAX_DESIGNS,
   SubscriberAccount,
   authenticateUserOrAdmin,
+  createGuestSession,
   deleteLocalProject,
   deleteSubscriberOnServer,
+  incrementGuestDesignsUsed,
   loadActiveSession,
   loadFacebookUrl,
+  loadGuestDesignsUsed,
   loadLocalBrandName,
   loadLocalProOrders,
   loadLocalProjects,
@@ -52,6 +58,12 @@ export default function App() {
   const [authSession, setAuthSession] = useState<ActiveAuthSession | null>(() =>
     loadActiveSession()
   );
+  const [guestDesignsUsed, setGuestDesignsUsed] = useState<number>(() =>
+    loadGuestDesignsUsed()
+  );
+  const [guestLimitReason, setGuestLimitReason] = useState<string | null>(null);
+  const [showGlobalProModal, setShowGlobalProModal] = useState(false);
+
   const [subscribers, setSubscribers] = useState<SubscriberAccount[]>(() => loadSubscribers());
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
@@ -65,6 +77,11 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const isAdminAuthorized = authSession?.role === 'admin';
+  const isGuestSession = authSession?.role === 'guest';
+  const hasReachedGuestLimit = Boolean(
+    isGuestSession && (guestDesignsUsed >= GUEST_MAX_DESIGNS || projects.length >= GUEST_MAX_DESIGNS)
+  );
+
   const matchedSubscriber =
     authSession?.role === 'subscriber'
       ? subscribers.find(
@@ -103,6 +120,7 @@ export default function App() {
     const res = await authenticateUserOrAdmin(username, password);
     if (res.ok && res.session) {
       setAuthSession(res.session);
+      setGuestLimitReason(null);
       if (res.session.role === 'admin') {
         setShowAdminPanel(true);
       }
@@ -111,11 +129,30 @@ export default function App() {
     return { ok: false, error: res.error };
   };
 
+  const handleGuestLogin = () => {
+    const session = createGuestSession();
+    setAuthSession(session);
+    setGuestLimitReason(null);
+  };
+
   const handleSignOut = () => {
     setActiveProject(null);
     setShowAdminPanel(false);
+    setGuestLimitReason(null);
+    setShowGlobalProModal(false);
     saveActiveSession(null);
     setAuthSession(null);
+  };
+
+  const consumeGuestDesignSlotOrAlert = (reason: string): boolean => {
+    if (!isGuestSession) return true;
+    if (hasReachedGuestLimit) {
+      setGuestLimitReason(reason);
+      return false;
+    }
+    const nextUsed = incrementGuestDesignsUsed();
+    setGuestDesignsUsed(nextUsed);
+    return true;
   };
 
   const handleUpdateBrandName = async (nextName: string) => {
@@ -125,6 +162,13 @@ export default function App() {
   };
 
   const handleOpenNewBlank = () => {
+    if (
+      !consumeGuestDesignSlotOrAlert(
+        'انتهت حصة الدخول المؤقت — يُسمح للزائر بإنشاء تصميم واحد فقط للتجربة. اشترك في نسخة برو لإنشاء تصاميم غير محدودة.'
+      )
+    ) {
+      return;
+    }
     setActiveProject({
       projectId: sanitizeId(`proj_${Date.now()}`),
       isExisting: false,
@@ -138,6 +182,13 @@ export default function App() {
       setErrorMsg('هذا التصميم متاح حصرياً لمشتركي باقة برو (1,000 د.ج/شهر).');
       return;
     }
+    if (
+      !consumeGuestDesignSlotOrAlert(
+        'تم استهلاك التصميم الوحيد المتاح في وضع المعاينة المؤقتة للعامة. اشترك في نسخة برو لفتح جميع القوالب وإنشاء تصاميم غير محدودة.'
+      )
+    ) {
+      return;
+    }
     setActiveProject({
       projectId: sanitizeId(`proj_${Date.now()}`),
       isExisting: false,
@@ -148,6 +199,13 @@ export default function App() {
   };
 
   const handleOpenWithCatalogItem = (itemDef: CatalogItemDef) => {
+    if (
+      !consumeGuestDesignSlotOrAlert(
+        'تم استهلاك التصميم الوحيد المتاح في الدخول المؤقت. اشترك في نسخة برو لإنشاء مشاريع جديدة بالأثاث والأجهزة.'
+      )
+    ) {
+      return;
+    }
     const plan = createBlankFloorPlan();
     plan.furniture.push({
       id: `furn_${Date.now()}`,
@@ -187,6 +245,12 @@ export default function App() {
 
   const handleSaveActiveProject = async (title: string, plan: FloorPlanData) => {
     if (!activeProject) return;
+    if (isGuestSession && !activeProject.isExisting && projects.length >= GUEST_MAX_DESIGNS) {
+      setGuestLimitReason(
+        'يمكن حفظ تصميم واحد فقط في الدخول المؤقت للعامة. اشترك في نسخة برو لحفظ مشاريع غير محدودة.'
+      );
+      return;
+    }
     const metrics = computeFloorPlanMetrics(plan);
     const updatedList = saveLocalProject({
       id: activeProject.projectId,
@@ -202,6 +266,13 @@ export default function App() {
   };
 
   const handleDuplicateProject = async (proj: ProjectRecord) => {
+    if (
+      !consumeGuestDesignSlotOrAlert(
+        'لا يمكن إنشاء نسخة ثانية في وضع الدخول المؤقت للعامة (تصميم واحد فقط). يرجى الاشتراك في نسخة برو.'
+      )
+    ) {
+      return;
+    }
     const newId = sanitizeId(`proj_${Date.now()}`);
     const next = saveLocalProject({
       ...proj,
@@ -220,6 +291,20 @@ export default function App() {
     openFirst = false
   ) => {
     if (importedList.length === 0) return;
+    if (
+      isGuestSession &&
+      (hasReachedGuestLimit || importedList.length > GUEST_MAX_DESIGNS)
+    ) {
+      setGuestLimitReason(
+        'وضع الدخول المؤقت يسمح بتصميم واحد فقط. اشترك في نسخة برو لاستيراد وحفظ عدة مشاريع.'
+      );
+      return;
+    }
+    if (isGuestSession) {
+      incrementGuestDesignsUsed();
+      setGuestDesignsUsed(loadGuestDesignsUsed());
+    }
+
     let firstProjectRecord: ProjectRecord | null = null;
 
     for (let i = 0; i < importedList.length; i += 1) {
@@ -316,8 +401,10 @@ export default function App() {
         brandName={brandName}
         facebookUrl={facebookUrl}
         isDarkTheme={isDarkTheme}
+        guestDesignsUsed={guestDesignsUsed}
         onToggleTheme={() => setIsDarkTheme((d) => !d)}
         onLogin={handleLogin}
+        onGuestLogin={handleGuestLogin}
         onSubmitProOrder={handleSubmitProOrder}
       />
     );
@@ -346,6 +433,8 @@ export default function App() {
           initialPlan={activeProject.plan}
           isDarkTheme={isDarkTheme}
           isSignedIn={true}
+          isGuestSession={isGuestSession}
+          onOpenProUpgrade={() => setShowGlobalProModal(true)}
           onToggleTheme={() => setIsDarkTheme((d) => !d)}
           onSaveProject={handleSaveActiveProject}
           onBackToGallery={() => setActiveProject(null)}
@@ -356,6 +445,8 @@ export default function App() {
           sessionUser={authSession}
           isAdminAuthorized={isAdminAuthorized}
           isUserProActive={isUserProActive}
+          isGuestSession={isGuestSession}
+          guestDesignsUsed={guestDesignsUsed}
           projects={projects}
           loadingProjects={false}
           proOrders={proOrders}
@@ -377,6 +468,79 @@ export default function App() {
           onUpdateProOrderStatus={handleUpdateProOrderStatus}
         />
       )}
+
+      {/* Guest 1-Design Limit Reached -> Urgent Pro Subscription Alert Modal */}
+      {guestLimitReason && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setGuestLimitReason(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-amber-300 dark:border-amber-800 bg-white dark:bg-[#181B20] overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-amber-50/70 dark:bg-amber-950/30">
+              <div className="inline-flex items-center gap-2 text-sm font-bold text-amber-900 dark:text-amber-300">
+                <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span>تنبيه: الاشتراك في نسخة برو ضروري للمتابعة</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGuestLimitReason(null)}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
+                {guestLimitReason}
+              </p>
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-3.5 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                <div>• فتح جميع التصاميم الجزائرية الـ 200 القابلة للتعديل</div>
+                <div>• إنشاء وحفظ عدد غير محدود من المشاريع والملفات</div>
+                <div>• الاشتراك بـ 1,000 د.ج/شهر عبر بريدي موب أو فليكسي (+10%)</div>
+              </div>
+
+              <div className="flex flex-col gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGuestLimitReason(null);
+                    setShowGlobalProModal(true);
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2.5 text-xs font-semibold text-white transition-colors"
+                >
+                  <Crown className="w-4 h-4" />
+                  <span>اشترك في نسخة برو الآن (دليل الدفع والتفعيل)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>لدي اسم مستخدم ورقم سري — تسجيل الدخول</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ProSubscribeModal
+        isOpen={showGlobalProModal}
+        brandName={brandName}
+        facebookUrl={facebookUrl}
+        userEmail={authSession.username}
+        isSignedIn={true}
+        isUserProActive={isUserProActive}
+        onClose={() => setShowGlobalProModal(false)}
+        onSubmitOrder={handleSubmitProOrder}
+      />
 
       {isAdminAuthorized && (
         <AdminPanelModal

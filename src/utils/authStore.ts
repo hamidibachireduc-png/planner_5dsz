@@ -29,7 +29,7 @@ export interface SubscriberAccount {
 }
 
 export interface ActiveAuthSession {
-  role: 'admin' | 'subscriber';
+  role: 'admin' | 'subscriber' | 'guest';
   username: string;
   displayName: string;
   proActive: boolean;
@@ -37,10 +37,13 @@ export interface ActiveAuthSession {
   expiresAtMs: number | null;
 }
 
+export const GUEST_MAX_DESIGNS = 1;
+
 // Optional static list if you want to commit custom-password users into GitHub directly
 export const BUILTIN_SUBSCRIBERS: SubscriberAccount[] = [];
 
 const STORAGE_SESSION_KEY = 'hb_studio_auth_session_v2';
+const STORAGE_GUEST_USAGE_KEY = 'hb_studio_guest_designs_used_v1';
 const STORAGE_SUBSCRIBERS_KEY = 'hb_studio_subscribers_v2';
 const STORAGE_REVOKED_KEY = 'hb_studio_revoked_users_v2';
 const STORAGE_PROJECTS_KEY = 'bachir5d_guest_projects_v1';
@@ -154,6 +157,39 @@ export function saveActiveSession(session: ActiveAuthSession | null): void {
   } catch {
     // ignore quota errors
   }
+}
+
+export function createGuestSession(): ActiveAuthSession {
+  const session: ActiveAuthSession = {
+    role: 'guest',
+    username: 'guest_preview',
+    displayName: 'زائر (معاينة مؤقتة)',
+    proActive: false,
+    proPlan: 'free',
+    expiresAtMs: Date.now() + 24 * 60 * 60 * 1000,
+  };
+  saveActiveSession(session);
+  return session;
+}
+
+export function loadGuestDesignsUsed(): number {
+  try {
+    const raw = localStorage.getItem(STORAGE_GUEST_USAGE_KEY);
+    const n = raw ? parseInt(raw, 10) : 0;
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function incrementGuestDesignsUsed(): number {
+  const next = loadGuestDesignsUsed() + 1;
+  try {
+    localStorage.setItem(STORAGE_GUEST_USAGE_KEY, String(next));
+  } catch {
+    // ignore quota errors
+  }
+  return next;
 }
 
 export function loadSubscribers(): SubscriberAccount[] {

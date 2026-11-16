@@ -6,6 +6,7 @@ import {
   Check,
   Columns2,
   Copy,
+  Crown,
   DoorOpen,
   Download,
   FileText,
@@ -63,6 +64,8 @@ interface StudioWorkspaceProps {
   initialPlan: FloorPlanData;
   isDarkTheme: boolean;
   isSignedIn: boolean;
+  isGuestSession?: boolean;
+  onOpenProUpgrade?: () => void;
   onToggleTheme: () => void;
   onSaveProject: (title: string, plan: FloorPlanData) => Promise<void>;
   onBackToGallery: () => void;
@@ -74,6 +77,8 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   initialPlan,
   isDarkTheme,
   isSignedIn,
+  isGuestSession = false,
+  onOpenProUpgrade,
   onToggleTheme,
   onSaveProject,
   onBackToGallery,
@@ -593,6 +598,27 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
           </button>
         </div>
       </header>
+
+      {isGuestSession && (
+        <div className="px-4 py-1.5 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-900 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
+          <div className="inline-flex items-center gap-2 text-amber-900 dark:text-amber-200 font-medium">
+            <Crown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>
+              وضع المعاينة المؤقتة للعامة (مسموح بإنشاء تصميم واحد فقط) — اشترك في نسخة برو لفتح جميع التصاميم الـ 200 وإنشاء مشاريع غير محدودة.
+            </span>
+          </div>
+          {onOpenProUpgrade && (
+            <button
+              type="button"
+              onClick={onOpenProUpgrade}
+              className="inline-flex items-center gap-1 rounded-md bg-amber-600 hover:bg-amber-700 px-3 py-1 text-[11px] font-semibold text-white transition-colors whitespace-nowrap shrink-0"
+            >
+              <Crown className="w-3 h-3" />
+              <span>الاشتراك في نسخة برو</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Main Workspace Area */}
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
