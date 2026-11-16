@@ -273,6 +273,12 @@ export interface EstimatorInputs {
   floorsCount: number;
   wallLengthM: number;
   wallHeightM: number;
+  roomsCount?: number;
+  salonsCount?: number;
+  kitchensCount?: number;
+  bathroomsCount?: number;
+  garagesCount?: number;
+  balconiesCount?: number;
   paintCoats: 2 | 3;
   finishLevel: FinishLevel;
   includeStructure: boolean;
@@ -303,6 +309,35 @@ export interface CostEstimateResult {
   costPerSqmDzd: number;
 }
 
+export function estimateDimensionsFromSpaces(spaces: {
+  roomsCount: number;
+  salonsCount: number;
+  kitchensCount: number;
+  bathroomsCount: number;
+  garagesCount: number;
+  balconiesCount: number;
+}): { floorAreaSqm: number; wallLengthM: number } {
+  const rooms = Math.max(0, spaces.roomsCount);
+  const salons = Math.max(0, spaces.salonsCount);
+  const kitchens = Math.max(0, spaces.kitchensCount);
+  const baths = Math.max(0, spaces.bathroomsCount);
+  const garages = Math.max(0, spaces.garagesCount);
+  const balconies = Math.max(0, spaces.balconiesCount);
+
+  const rawSpacesArea =
+    rooms * 13.5 + salons * 22 + kitchens * 13 + baths * 5.5 + garages * 20 + balconies * 7;
+  const circulationArea = Math.max(8, rawSpacesArea * 0.14);
+  const floorAreaSqm = Math.max(20, Math.round(rawSpacesArea + circulationArea));
+
+  // Perimeter + interior partition walls from space counts
+  const perimeterEst = Math.sqrt(floorAreaSqm) * 4;
+  const partitionEst =
+    rooms * 6.5 + salons * 7 + kitchens * 6 + baths * 4.5 + garages * 8 + balconies * 2.5;
+  const wallLengthM = Math.max(12, Math.round(perimeterEst + partitionEst * 0.55));
+
+  return { floorAreaSqm, wallLengthM };
+}
+
 export function computeAlgeriaConstructionEstimate(
   inputs: EstimatorInputs,
   priceList: AlgeriaMaterialPrice[]
@@ -319,8 +354,27 @@ export function computeAlgeriaConstructionEstimate(
   const builtAreaSqm = floorArea * floors;
   const wallLen = Math.max(8, Number(inputs.wallLengthM) || floorArea * 0.45);
   const wallH = Math.max(2.2, Math.min(5.0, Number(inputs.wallHeightM) || 2.9));
-  const netWallOneSideSqm = wallLen * wallH * floors * 0.85;
-  const paintAreaSqm = Math.round(netWallOneSideSqm * 1.85 + builtAreaSqm);
+
+  const roomsCount = Math.max(0, Number(inputs.roomsCount ?? 3));
+  const salonsCount = Math.max(0, Number(inputs.salonsCount ?? 1));
+  const kitchensCount = Math.max(0, Number(inputs.kitchensCount ?? 1));
+  const bathroomsCount = Math.max(0, Number(inputs.bathroomsCount ?? 1));
+  const garagesCount = Math.max(0, Number(inputs.garagesCount ?? 0));
+  const balconiesCount = Math.max(0, Number(inputs.balconiesCount ?? 1));
+
+  // Space-aware wall & wet-area ceramic tiling adjustments
+  const extraSpaceWallArea =
+    (roomsCount + salonsCount + kitchensCount + bathroomsCount) * 2.2 * floors +
+    garagesCount * 14;
+  const netWallOneSideSqm = wallLen * wallH * floors * 0.85 + extraSpaceWallArea * 0.35;
+  const wetWallTileSqm = (kitchensCount * 14 + bathroomsCount * 18) * floors;
+  const garageFloorAreaSqm = garagesCount * 20;
+  const balconyAreaSqm = balconiesCount * 7 * floors;
+  const totalCeramicSqm =
+    builtAreaSqm * 1.1 + wetWallTileSqm * 1.08 + balconyAreaSqm * 0.9;
+  const paintAreaSqm = Math.round(
+    Math.max(20, netWallOneSideSqm * 1.85 - wetWallTileSqm * 0.8 + builtAreaSqm)
+  );
 
   const lines: CostLineItem[] = [];
   const pushLine = (id: string, qty: number, unitPriceOverride?: number) => {
@@ -340,12 +394,14 @@ export function computeAlgeriaConstructionEstimate(
   };
 
   if (inputs.includeStructure) {
-    pushLine('cement_bag', builtAreaSqm * 5.5);
-    pushLine('rebar_q', builtAreaSqm * 0.38);
+    // Garages require slightly thicker floor slab & lintel/beam reinforcement
+    const structuralArea = builtAreaSqm + garageFloorAreaSqm * 0.15;
+    pushLine('cement_bag', structuralArea * 5.5);
+    pushLine('rebar_q', structuralArea * 0.38);
     pushLine('brick_8', netWallOneSideSqm * 12);
-    pushLine('brick_12', netWallOneSideSqm * 7);
-    pushLine('sand_m3', builtAreaSqm * 0.45);
-    pushLine('gravel_m3', builtAreaSqm * 0.38);
+    pushLine('brick_12', netWallOneSideSqm * 7 + garagesCount * 280);
+    pushLine('sand_m3', structuralArea * 0.45);
+    pushLine('gravel_m3', structuralArea * 0.38);
     if (inputs.includeLabor) {
       pushLine('labor_structure_m2', builtAreaSqm);
     }
@@ -356,18 +412,18 @@ export function computeAlgeriaConstructionEstimate(
     pushLine('enduit_25', paintAreaSqm / 22);
     pushLine('paint_vinyl_25', (paintAreaSqm * coats * 0.72) / 70);
     pushLine('paint_satin_15', (paintAreaSqm * coats * 0.28) / 45, getPrice('paint_satin_15') * finishMult);
-    pushLine('facade_paint_25', (builtAreaSqm * 0.35 * 2) / 55);
+    pushLine('facade_paint_25', ((builtAreaSqm * 0.35 + balconiesCount * 8) * 2) / 55);
     if (inputs.includeLabor) {
       pushLine('labor_paint_m2', paintAreaSqm * (coats === 3 ? 1.15 : 1));
     }
   }
 
   if (inputs.includeTiling) {
-    pushLine('ceramic_m2', builtAreaSqm * 1.1, getPrice('ceramic_m2') * finishMult);
-    pushLine('ciment_colle_25', builtAreaSqm / 4.5);
-    pushLine('placo_ba13', (builtAreaSqm * 0.6) / 3);
+    pushLine('ceramic_m2', totalCeramicSqm, getPrice('ceramic_m2') * finishMult);
+    pushLine('ciment_colle_25', totalCeramicSqm / 4.5);
+    pushLine('placo_ba13', ((builtAreaSqm - garageFloorAreaSqm * 0.5) * 0.6) / 3);
     if (inputs.includeLabor) {
-      pushLine('labor_tile_m2', builtAreaSqm);
+      pushLine('labor_tile_m2', builtAreaSqm + wetWallTileSqm * 0.85);
     }
   }
 

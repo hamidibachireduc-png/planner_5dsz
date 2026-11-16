@@ -7,6 +7,7 @@ import {
   Download,
   ExternalLink,
   Minus,
+  Plus,
   Printer,
   Receipt,
   RefreshCw,
@@ -24,6 +25,7 @@ import {
   MaterialCategory,
   buildRegionalReferenceSnapshot,
   computeAlgeriaConstructionEstimate,
+  estimateDimensionsFromSpaces,
   formatDzd,
   formatMillionCentimes,
 } from '../data/algeriaMarketPrices';
@@ -70,11 +72,19 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
   const [savedNotice, setSavedNotice] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
+  const [autoSyncSpaces, setAutoSyncSpaces] = useState<boolean>(!linkedPlan);
+
   const [inputs, setInputs] = useState<EstimatorInputs>(() => ({
-    floorAreaSqm: linkedPlan ? Math.max(15, Math.round(linkedPlan.floorAreaSqm)) : 100,
+    floorAreaSqm: linkedPlan ? Math.max(15, Math.round(linkedPlan.floorAreaSqm)) : 112,
     floorsCount: 1,
-    wallLengthM: linkedPlan ? Math.max(10, Math.round(linkedPlan.wallLengthM)) : 45,
+    wallLengthM: linkedPlan ? Math.max(10, Math.round(linkedPlan.wallLengthM)) : 68,
     wallHeightM: linkedPlan ? Number(linkedPlan.wallHeightM.toFixed(2)) : 2.9,
+    roomsCount: 3,
+    salonsCount: 1,
+    kitchensCount: 1,
+    bathroomsCount: 1,
+    garagesCount: 0,
+    balconiesCount: 1,
     paintCoats: 2,
     finishLevel: 'standard',
     includeStructure: true,
@@ -82,6 +92,38 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
     includeTiling: true,
     includeLabor: true,
   }));
+
+  const updateSpaceCount = (
+    key:
+      | 'roomsCount'
+      | 'salonsCount'
+      | 'kitchensCount'
+      | 'bathroomsCount'
+      | 'garagesCount'
+      | 'balconiesCount',
+    nextVal: number
+  ) => {
+    const clamped = Math.max(0, Math.min(20, Math.round(nextVal)));
+    setInputs((prev) => {
+      const updated: EstimatorInputs = {
+        ...prev,
+        [key]: clamped,
+      };
+      if (autoSyncSpaces) {
+        const est = estimateDimensionsFromSpaces({
+          roomsCount: updated.roomsCount ?? 3,
+          salonsCount: updated.salonsCount ?? 1,
+          kitchensCount: updated.kitchensCount ?? 1,
+          bathroomsCount: updated.bathroomsCount ?? 1,
+          garagesCount: updated.garagesCount ?? 0,
+          balconiesCount: updated.balconiesCount ?? 1,
+        });
+        updated.floorAreaSqm = est.floorAreaSqm;
+        updated.wallLengthM = est.wallLengthM;
+      }
+      return updated;
+    });
+  };
 
   useEffect(() => {
     if (!linkedPlan) return;
@@ -390,6 +432,90 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
                 }
                 className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2 font-mono-nums text-slate-900 dark:text-white focus:border-blue-500 focus:outline-none"
               />
+            </div>
+          </div>
+
+          {/* Space Counts (Bedrooms, Salons, Kitchens, Bathrooms, Garage, Balconies) */}
+          <div className="space-y-2.5 pt-2 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                عدد الفضاءات (الغرف، المطبخ، الكراج...)
+              </span>
+              <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoSyncSpaces}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setAutoSyncSpaces(checked);
+                    if (checked) {
+                      const est = estimateDimensionsFromSpaces({
+                        roomsCount: inputs.roomsCount ?? 3,
+                        salonsCount: inputs.salonsCount ?? 1,
+                        kitchensCount: inputs.kitchensCount ?? 1,
+                        bathroomsCount: inputs.bathroomsCount ?? 1,
+                        garagesCount: inputs.garagesCount ?? 0,
+                        balconiesCount: inputs.balconiesCount ?? 1,
+                      });
+                      setInputs((prev) => ({
+                        ...prev,
+                        floorAreaSqm: est.floorAreaSqm,
+                        wallLengthM: est.wallLengthM,
+                      }));
+                    }
+                  }}
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>حساب المساحة تلقائياً</span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+              {(
+                [
+                  { key: 'roomsCount', label: 'غرف النوم', min: 0, max: 16 },
+                  { key: 'salonsCount', label: 'الصالون', min: 0, max: 6 },
+                  { key: 'kitchensCount', label: 'المطبخ', min: 0, max: 6 },
+                  { key: 'bathroomsCount', label: 'الحمام / WC', min: 0, max: 8 },
+                  { key: 'garagesCount', label: 'الكراج (المرآب)', min: 0, max: 6 },
+                  { key: 'balconiesCount', label: 'شرفة / فناء', min: 0, max: 8 },
+                ] as const
+              ).map((sp) => {
+                const val = Number(inputs[sp.key] ?? 0);
+                return (
+                  <div
+                    key={sp.key}
+                    className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/60 px-2.5 py-2 flex flex-col justify-between gap-1.5"
+                  >
+                    <span className="font-medium text-slate-700 dark:text-slate-300 truncate">
+                      {sp.label}
+                    </span>
+                    <div className="flex items-center justify-between gap-1">
+                      <button
+                        type="button"
+                        onClick={() => updateSpaceCount(sp.key, Math.max(sp.min, val - 1))}
+                        disabled={val <= sp.min}
+                        aria-label={`إنقاص ${sp.label}`}
+                        className="w-7 h-7 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-35"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="font-mono-nums font-bold text-sm text-slate-900 dark:text-white min-w-[20px] text-center">
+                        {val}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateSpaceCount(sp.key, Math.min(sp.max, val + 1))}
+                        disabled={val >= sp.max}
+                        aria-label={`زيادة ${sp.label}`}
+                        className="w-7 h-7 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-35"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
