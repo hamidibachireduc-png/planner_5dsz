@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Box,
   Calculator,
+  Camera,
   Check,
   ChevronDown,
   Columns2,
@@ -65,6 +66,7 @@ import {
   Wall,
 } from '../types/planner';
 import { AlgeriaCostCalculator } from './AlgeriaCostCalculator';
+import { CameraArPreviewModal } from './CameraArPreviewModal';
 import { Canvas2D } from './Canvas2D';
 import { InvoiceModal } from './InvoiceModal';
 import { SketchToPlanModal } from './SketchToPlanModal';
@@ -126,6 +128,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   const [showCostModal, setShowCostModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showSketchModal, setShowSketchModal] = useState(false);
+  const [showCameraArModal, setShowCameraArModal] = useState(false);
   const [sketchUnderlay, setSketchUnderlay] = useState<SketchUnderlayConfig | null>(
     initialUnderlay
   );
@@ -669,6 +672,16 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
 
           <button
             type="button"
+            onClick={() => setShowCameraArModal(true)}
+            className="hidden lg:inline-flex items-center gap-1 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors whitespace-nowrap shrink-0"
+            title="معاينة المخطط 2D في الفضاء الحقيقي بالكاميرا (برو)"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>كاميرا 2D (برو)</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setShowInvoiceModal(true)}
             className="hidden lg:inline-flex items-center gap-1 rounded-lg border border-amber-300 dark:border-amber-700/70 bg-amber-50/80 dark:bg-amber-950/30 px-2.5 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors whitespace-nowrap shrink-0"
             title="عرض وتصدير فاتورة الحسابات والمقايسة"
@@ -781,6 +794,18 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             >
               <ImagePlus className="w-4 h-4" />
               <span>تصميم من ورقة مرسومة (برو)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setShowCameraArModal(true);
+              }}
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2.5 font-semibold text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-right"
+            >
+              <Camera className="w-4 h-4" />
+              <span>معاينة المخطط بالكاميرا (برو)</span>
             </button>
 
             <button
@@ -2318,6 +2343,18 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                     )}
                   </div>
 
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileSheet(null);
+                      setShowCameraArModal(true);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 text-xs font-semibold text-indigo-700 dark:text-indigo-300"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>معاينة المخطط 2D في الفضاء الحقيقي بالكاميرا (برو)</span>
+                  </button>
+
                   <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                     <button
                       type="button"
@@ -3042,6 +3079,19 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             setSketchUnderlay(underlay);
           }
           setSelection(null);
+        }}
+      />
+
+      {/* Pro Real-Space Camera AR 2D Floorplan Preview */}
+      <CameraArPreviewModal
+        isOpen={showCameraArModal}
+        projectTitle={title}
+        floorPlan={floorPlan}
+        isUserProActive={isUserProActive}
+        onClose={() => setShowCameraArModal(false)}
+        onOpenProUpgrade={() => {
+          setShowCameraArModal(false);
+          onOpenProUpgrade?.();
         }}
       />
     </div>

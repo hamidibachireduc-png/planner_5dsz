@@ -1,7 +1,9 @@
 {
   "name": "Bachir 5D — Home Design & Floor Plan Studio",
   "description": "Interactive 2D architectural floor planner and real-time 3D interior design studio by Bachir.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "camera"
+  ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]
