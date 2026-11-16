@@ -146,18 +146,18 @@ export const ProSubscribeModal: React.FC<ProSubscribeModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 backdrop-blur-sm p-2.5 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="pro-modal-title"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#181B20] shadow-2xl overflow-hidden"
+        className="w-full max-w-3xl max-h-[92dvh] flex flex-col rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#181B20] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
+        <div className="flex items-center justify-between gap-3 sm:gap-4 px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <img
               src={BRAND_LOGO_URL}
@@ -189,12 +189,12 @@ export const ProSubscribeModal: React.FC<ProSubscribeModalProps> = ({
         </div>
 
         {/* Scrollable Body */}
-        <div className="overflow-y-auto p-6 space-y-6 studio-scroll">
+        <div className="overflow-y-auto p-4 sm:p-6 pb-safe space-y-5 sm:space-y-6 studio-scroll">
           {isUserProActive && (
             <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-950/30 px-4 py-3 text-xs text-emerald-800 dark:text-emerald-300">
               <div className="inline-flex items-center gap-2 font-semibold">
                 <ShieldCheck className="w-4 h-4 shrink-0" />
-                <span>حسابك مفعّل حالياً على باقة برو — يمكنك فتح جميع التصاميم الجزائرية الـ 200.</span>
+                <span>حسابك مفعّل حالياً على باقة برو — يمكنك فتح جميع التصاميم الـ 200 وتحويل الأوراق المرسومة إلى 2D/3D.</span>
               </div>
             </div>
           )}
@@ -313,10 +313,10 @@ export const ProSubscribeModal: React.FC<ProSubscribeModalProps> = ({
                   <div className="text-[11px] text-slate-500 dark:text-slate-400">
                     رقم الحساب البريدي (RIP):
                   </div>
-                  <div className="flex items-center justify-between gap-2 mt-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mt-1">
                     <code
                       dir="ltr"
-                      className="text-sm sm:text-base font-bold font-mono-nums text-slate-900 dark:text-white select-all tracking-wide"
+                      className="text-xs sm:text-base font-bold font-mono-nums text-slate-900 dark:text-white select-all tracking-wide break-all"
                     >
                       {BARIDIMOB_RIP}
                     </code>

@@ -337,20 +337,23 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-2.5 sm:p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="فاتورة الحسابات والمقايسة"
+      aria-labelledby="invoice-modal-title"
     >
-      <div className="w-full max-w-5xl max-h-[92vh] flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-[#F7F6F2] dark:bg-[#111315] shadow-2xl overflow-hidden">
+      <div className="w-full max-w-5xl max-h-[92dvh] flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-[#F7F6F2] dark:bg-[#111315] shadow-2xl overflow-hidden">
         {/* Top Modal Header */}
-        <div className="px-6 py-4 bg-white dark:bg-[#181B20] border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 shrink-0">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-white dark:bg-[#181B20] border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 sm:gap-4 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-lg bg-blue-600/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
               <Receipt className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h2 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white truncate">
+              <h2
+                id="invoice-modal-title"
+                className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white truncate"
+              >
                 فاتورة الحسابات الشاملة — {projectTitle}
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -370,7 +373,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         </div>
 
         {/* Scrollable Invoice Content */}
-        <div className="flex-1 overflow-y-auto studio-scroll p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto studio-scroll p-4 sm:p-6 space-y-5 sm:space-y-6">
           {/* 1. Customer & Invoice Metadata */}
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181B20] p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
             <div>
@@ -783,7 +786,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         </div>
 
         {/* Sticky Grand Total & Export Actions Footer */}
-        <div className="px-6 py-4 bg-white dark:bg-[#181B20] border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 pb-safe bg-white dark:bg-[#181B20] border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shrink-0">
           <div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
               المجموع النهائي {discountDzd > 0 ? `(بعد تخفيض ${discountPct}%)` : ''}

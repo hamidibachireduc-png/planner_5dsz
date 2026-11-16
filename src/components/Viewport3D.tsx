@@ -3,6 +3,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
   Camera,
   ChevronDown,
   ChevronUp,
@@ -264,6 +268,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   moodRef.current = mood;
   const cameraPresetRef = useRef(cameraPreset);
   cameraPresetRef.current = cameraPreset;
+  const activeWalkBtnRef = useRef<'fwd' | 'back' | 'left' | 'right' | null>(null);
+  const walkBtnRafRef = useRef<number>(0);
 
   const sceneRefs = useRef<{
     renderer: THREE.WebGLRenderer;
@@ -279,6 +285,52 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     requestRender: () => void;
     transitionTarget: { pos: THREE.Vector3; look: THREE.Vector3 } | null;
   } | null>(null);
+
+  const stepWalkDirection = (dir: 'fwd' | 'back' | 'left' | 'right') => {
+    const refs = sceneRefs.current;
+    if (!refs) return;
+    const speed = 0.14;
+    refs.camera.getWorldDirection(_forward);
+    _forward.y = 0;
+    _forward.normalize();
+    _right.crossVectors(_forward, refs.camera.up).normalize();
+
+    _vec3A.set(0, 0, 0);
+    if (dir === 'fwd') _vec3A.add(_forward);
+    if (dir === 'back') _vec3A.sub(_forward);
+    if (dir === 'right') _vec3A.add(_right);
+    if (dir === 'left') _vec3A.sub(_right);
+
+    if (_vec3A.lengthSq() > 0) {
+      _vec3A.normalize().multiplyScalar(speed);
+      refs.camera.position.add(_vec3A);
+      refs.controls.target.add(_vec3A);
+      refs.transitionTarget = null;
+      refs.requestRender();
+    }
+  };
+
+  const startTouchWalk = (dir: 'fwd' | 'back' | 'left' | 'right') => {
+    activeWalkBtnRef.current = dir;
+    if (walkBtnRafRef.current) cancelAnimationFrame(walkBtnRafRef.current);
+    const loop = () => {
+      if (!activeWalkBtnRef.current) {
+        walkBtnRafRef.current = 0;
+        return;
+      }
+      stepWalkDirection(activeWalkBtnRef.current);
+      walkBtnRafRef.current = requestAnimationFrame(loop);
+    };
+    loop();
+  };
+
+  const stopTouchWalk = () => {
+    activeWalkBtnRef.current = null;
+    if (walkBtnRafRef.current) {
+      cancelAnimationFrame(walkBtnRafRef.current);
+      walkBtnRafRef.current = 0;
+    }
+  };
 
   // Keyboard shortcut H to collapse HUD + WASD walkthrough controls
   useEffect(() => {
@@ -392,8 +444,12 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     controls.enableDamping = !isSoftwareGl;
     controls.dampingFactor = 0.06;
     controls.maxPolarAngle = Math.PI / 2 - 0.03;
-    controls.minDistance = 1.5;
-    controls.maxDistance = 45;
+    controls.minDistance = 1.2;
+    controls.maxDistance = 48;
+    controls.touches = {
+      ONE: THREE.TOUCH.ROTATE,
+      TWO: THREE.TOUCH.DOLLY_PAN,
+    };
     controls.target.set(0, 0.8, 0);
 
     // 3-Point Architectural Lighting Rig
@@ -780,7 +836,10 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   return (
     <div className="relative w-full h-full overflow-hidden bg-[#EEF2F6] dark:bg-[#161A20]">
       {/* Isolated WebGL Mount Container */}
-      <div ref={mountRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
+      <div
+        ref={mountRef}
+        className="w-full h-full touch-none cursor-grab active:cursor-grabbing"
+      />
 
       {webglError && (
         <div className="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-900 p-6 text-center">
@@ -790,136 +849,198 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         </div>
       )}
 
-      {/* Minimal Top-Right Walkthrough Hint when in walkthrough mode */}
+      {/* Minimal Walkthrough Hint when in walkthrough mode */}
       {cameraPreset === 'walkthrough' && (
-        <div className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 z-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-4 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm">
-          استخدم مفاتيح WASD أو الأسهم للتجول داخل المنزل، واسحب الفأرة للالتفاف
+        <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 max-w-[92vw] text-center z-10 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm">
+          <span className="hidden md:inline">
+            استخدم مفاتيح WASD أو الأسهم للتجول داخل المنزل، واسحب الفأرة للالتفاف
+          </span>
+          <span className="md:hidden">
+            اسحب بإصبعك للالتفاف واستخدم أزرار المشي للتنقل
+          </span>
+        </div>
+      )}
+
+      {/* Touch Walkthrough Directional Pad (for phones/tablets) */}
+      {cameraPreset === 'walkthrough' && (
+        <div
+          className="lg:hidden absolute right-3 bottom-24 z-20 grid grid-cols-3 gap-1 w-28 select-none"
+          aria-label="أزرار التجول داخل النموذج"
+        >
+          <div />
+          <button
+            type="button"
+            onPointerDown={() => startTouchWalk('fwd')}
+            onPointerUp={stopTouchWalk}
+            onPointerLeave={stopTouchWalk}
+            onPointerCancel={stopTouchWalk}
+            aria-label="التقدم للأمام"
+            className="h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-100 flex items-center justify-center shadow-sm active:bg-blue-600 active:text-white touch-none"
+          >
+            <ArrowUp className="w-4 h-4" />
+          </button>
+          <div />
+          <button
+            type="button"
+            onPointerDown={() => startTouchWalk('right')}
+            onPointerUp={stopTouchWalk}
+            onPointerLeave={stopTouchWalk}
+            onPointerCancel={stopTouchWalk}
+            aria-label="تحرك يمين"
+            className="h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-100 flex items-center justify-center shadow-sm active:bg-blue-600 active:text-white touch-none"
+          >
+            <ArrowRight className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onPointerDown={() => startTouchWalk('back')}
+            onPointerUp={stopTouchWalk}
+            onPointerLeave={stopTouchWalk}
+            onPointerCancel={stopTouchWalk}
+            aria-label="التراجع للخلف"
+            className="h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-100 flex items-center justify-center shadow-sm active:bg-blue-600 active:text-white touch-none"
+          >
+            <ArrowDown className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onPointerDown={() => startTouchWalk('left')}
+            onPointerUp={stopTouchWalk}
+            onPointerLeave={stopTouchWalk}
+            onPointerCancel={stopTouchWalk}
+            aria-label="تحرك يسار"
+            className="h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-100 flex items-center justify-center shadow-sm active:bg-blue-600 active:text-white touch-none"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
         </div>
       )}
 
       {/* Collapsible Bottom Control Dock (Zero Viewport Occlusion, No backdrop-blur over WebGL) */}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center max-w-[min(940px,94vw)]">
+      <div className="absolute bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center w-auto max-w-[96vw]">
         <button
           type="button"
           onClick={() => setDockCollapsed((v) => !v)}
-          className="mb-1.5 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-3 py-1 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+          className="mb-1.5 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-3 py-1.5 sm:py-1 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
           title="اختصار لوحة المفاتيح: H"
         >
           {dockCollapsed ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          <span>{dockCollapsed ? 'إظهار أدوات المشهد' : 'إخفاء الأدوات (H)'}</span>
+          <span>{dockCollapsed ? 'إظهار أدوات المشهد' : 'إخفاء الأدوات'}</span>
         </button>
 
         {!dockCollapsed && (
-          <div className="flex flex-wrap items-center justify-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 px-4 py-2.5 shadow-lg">
-            {/* Camera Presets */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+          <div className="w-full overflow-x-auto no-scrollbar rounded-xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 shadow-lg">
+            <div className="flex items-center justify-start sm:justify-center gap-2 sm:gap-3 px-2.5 sm:px-4 py-2 min-w-max">
+              {/* Camera Presets */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg shrink-0">
+                <button
+                  type="button"
+                  onClick={() => applyCameraPreset('perspective')}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                    cameraPreset === 'perspective'
+                      ? 'bg-white dark:bg-slate-950 text-blue-700 dark:text-blue-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>منظور</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyCameraPreset('isometric')}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                    cameraPreset === 'isometric'
+                      ? 'bg-white dark:bg-slate-950 text-blue-700 dark:text-blue-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>إيزومتري</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyCameraPreset('walkthrough')}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                    cameraPreset === 'walkthrough'
+                      ? 'bg-white dark:bg-slate-950 text-blue-700 dark:text-blue-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Footprints className="w-3.5 h-3.5" />
+                  <span>جولة داخلية</span>
+                </button>
+              </div>
+
+              <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
+
+              {/* Lighting Moods */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMood('daylight')}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                    mood === 'daylight'
+                      ? 'bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  <Sun className="w-3.5 h-3.5" />
+                  <span>نهار</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMood('golden')}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                    mood === 'golden'
+                      ? 'bg-white dark:bg-slate-950 text-amber-700 dark:text-amber-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  <Sunset className="w-3.5 h-3.5" />
+                  <span>غروب</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMood('evening')}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+                    mood === 'evening'
+                      ? 'bg-white dark:bg-slate-950 text-indigo-700 dark:text-indigo-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-300'
+                  }`}
+                >
+                  <Moon className="w-3.5 h-3.5" />
+                  <span>مساء</span>
+                </button>
+              </div>
+
+              <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
+
+              {/* Wall Cutaway Slider */}
+              <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap shrink-0">
+                <span>الجدران</span>
+                <input
+                  type="range"
+                  min={0.2}
+                  max={1}
+                  step={0.05}
+                  value={wallScale}
+                  onChange={(e) => setWallScale(Number(e.target.value))}
+                  className="w-20 accent-blue-600 cursor-pointer"
+                />
+              </label>
+
+              <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
+
+              {/* Render Snapshot Button */}
               <button
                 type="button"
-                onClick={() => applyCameraPreset('perspective')}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
-                  cameraPreset === 'perspective'
-                    ? 'bg-white dark:bg-slate-950 text-blue-700 dark:text-blue-400 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                }`}
+                onClick={handleSnapshot}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-1.5 text-xs font-medium text-white transition-colors whitespace-nowrap shrink-0"
               >
-                <Eye className="w-3.5 h-3.5" />
-                <span>منظور</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => applyCameraPreset('isometric')}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
-                  cameraPreset === 'isometric'
-                    ? 'bg-white dark:bg-slate-950 text-blue-700 dark:text-blue-400 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <Compass className="w-3.5 h-3.5" />
-                <span>إيزومتري</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => applyCameraPreset('walkthrough')}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
-                  cameraPreset === 'walkthrough'
-                    ? 'bg-white dark:bg-slate-950 text-blue-700 dark:text-blue-400 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                <Footprints className="w-3.5 h-3.5" />
-                <span>جولة داخلية</span>
+                <Camera className="w-3.5 h-3.5" />
+                <span>التقاط 3D</span>
               </button>
             </div>
-
-            <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
-
-            {/* Lighting Moods */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-              <button
-                type="button"
-                onClick={() => setMood('daylight')}
-                className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
-                  mood === 'daylight'
-                    ? 'bg-white dark:bg-slate-950 text-slate-900 dark:text-white shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300'
-                }`}
-              >
-                <Sun className="w-3.5 h-3.5" />
-                <span>نهار</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setMood('golden')}
-                className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
-                  mood === 'golden'
-                    ? 'bg-white dark:bg-slate-950 text-amber-700 dark:text-amber-400 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300'
-                }`}
-              >
-                <Sunset className="w-3.5 h-3.5" />
-                <span>غروب</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setMood('evening')}
-                className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
-                  mood === 'evening'
-                    ? 'bg-white dark:bg-slate-950 text-indigo-700 dark:text-indigo-400 shadow-sm'
-                    : 'text-slate-600 dark:text-slate-300'
-                }`}
-              >
-                <Moon className="w-3.5 h-3.5" />
-                <span>مساء</span>
-              </button>
-            </div>
-
-            <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
-
-            {/* Wall Cutaway Slider */}
-            <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap shrink-0">
-              <span>ارتفاع الجدران</span>
-              <input
-                type="range"
-                min={0.2}
-                max={1}
-                step={0.05}
-                value={wallScale}
-                onChange={(e) => setWallScale(Number(e.target.value))}
-                className="w-20 accent-blue-600 cursor-pointer"
-              />
-            </label>
-
-            <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
-
-            {/* Render Snapshot Button */}
-            <button
-              type="button"
-              onClick={handleSnapshot}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-1.5 text-xs font-medium text-white transition-colors whitespace-nowrap shrink-0"
-            >
-              <Camera className="w-3.5 h-3.5" />
-              <span>التقاط صورة 3D</span>
-            </button>
           </div>
         )}
       </div>

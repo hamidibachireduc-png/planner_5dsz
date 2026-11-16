@@ -244,8 +244,8 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
         </div>
 
         {/* Region Tabs + Refresh Action */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <div className="flex flex-wrap items-center gap-1 p-1 bg-slate-200/70 dark:bg-slate-800 rounded-lg">
+        <div className="flex flex-wrap items-center gap-2 max-w-full shrink-0">
+          <div className="flex flex-nowrap sm:flex-wrap items-center gap-1 p-1 bg-slate-200/70 dark:bg-slate-800 rounded-lg overflow-x-auto no-scrollbar max-w-full">
             {ALGERIA_REGIONS.map((r) => (
               <button
                 key={r.id}
@@ -674,7 +674,7 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
         </div>
 
         {/* Category Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-nowrap sm:flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar max-w-full pb-1 sm:pb-0">
           {MATERIAL_CATEGORIES.map((cat) => (
             <button
               key={cat.id}

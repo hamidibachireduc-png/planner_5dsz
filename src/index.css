@@ -8,6 +8,12 @@
     --font-mono: 'IBM Plex Mono', monospace;
   }
 
+  html,
+  body {
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     font-family: var(--font-sans);
   }
@@ -20,6 +26,33 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
+}
+
+/* Prevent iOS Safari auto-zoom on form focus while keeping visual design compact */
+@media (max-width: 767px) {
+  input[type='text'],
+  input[type='number'],
+  input[type='tel'],
+  input[type='password'],
+  input[type='email'],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Mobile safe-area bottom inset helper */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Hide scrollbars cleanly for horizontal mobile filter strips */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Custom sleek scrollbars for studio catalog & inspector */

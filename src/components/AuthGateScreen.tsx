@@ -64,17 +64,17 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F6F2] dark:bg-[#111315] text-slate-900 dark:text-slate-100 flex flex-col">
+    <div className="min-h-[100dvh] bg-[#F7F6F2] dark:bg-[#111315] text-slate-900 dark:text-slate-100 flex flex-col">
       {/* Clean Minimal Top Bar */}
       <header className="border-b border-slate-200/80 dark:border-slate-800 bg-[#F7F6F2]/95 dark:bg-[#111315]/95">
-        <div className="max-w-[1160px] mx-auto px-6 h-16 flex items-center justify-between gap-6">
-          <div className="inline-flex items-center gap-2.5 font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white whitespace-nowrap shrink-0">
+        <div className="max-w-[1160px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3 sm:gap-6">
+          <div className="inline-flex items-center gap-2 sm:gap-2.5 font-display text-sm sm:text-lg font-bold text-slate-900 dark:text-white min-w-0 shrink">
             <img
               src={BRAND_LOGO_URL}
               alt={brandName}
-              className="w-9 h-9 rounded-full object-cover border border-amber-600/40 shrink-0"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border border-amber-600/40 shrink-0"
             />
-            <span>{brandName}</span>
+            <span className="truncate">{brandName}</span>
           </div>
 
           <button

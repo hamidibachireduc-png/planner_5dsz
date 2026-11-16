@@ -271,3 +271,12 @@ export type SelectionTarget =
   | { kind: 'opening'; id: string }
   | { kind: 'furniture'; id: string }
   | null;
+
+export interface SketchUnderlayConfig {
+  dataUrl: string;
+  widthM: number;
+  depthM: number;
+  opacity: number;
+  visible: boolean;
+}
+

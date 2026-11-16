@@ -9,6 +9,7 @@ import { AdminPanelModal } from './components/AdminPanelModal';
 import { AuthGateScreen } from './components/AuthGateScreen';
 import { LandingShowcase } from './components/LandingShowcase';
 import { ProSubscribeModal } from './components/ProSubscribeModal';
+import { SketchToPlanModal } from './components/SketchToPlanModal';
 import { StudioWorkspace } from './components/StudioWorkspace';
 import {
   CatalogItemDef,
@@ -16,7 +17,12 @@ import {
   computeFloorPlanMetrics,
   createBlankFloorPlan,
 } from './data/catalog';
-import { FloorPlanData, ProSubscriptionOrder, ProjectRecord } from './types/planner';
+import {
+  FloorPlanData,
+  ProSubscriptionOrder,
+  ProjectRecord,
+  SketchUnderlayConfig,
+} from './types/planner';
 import {
   ActiveAuthSession,
   GUEST_MAX_DESIGNS,
@@ -52,6 +58,7 @@ interface ActiveProjectSession {
   title: string;
   templateKey?: string;
   plan: FloorPlanData;
+  underlay?: SketchUnderlayConfig | null;
 }
 
 export default function App() {
@@ -63,6 +70,7 @@ export default function App() {
   );
   const [guestLimitReason, setGuestLimitReason] = useState<string | null>(null);
   const [showGlobalProModal, setShowGlobalProModal] = useState(false);
+  const [showSketchModal, setShowSketchModal] = useState(false);
 
   const [subscribers, setSubscribers] = useState<SubscriberAccount[]>(() => loadSubscribers());
   const [showAdminPanel, setShowAdminPanel] = useState(false);
@@ -431,9 +439,11 @@ export default function App() {
           projectId={activeProject.projectId}
           initialTitle={activeProject.title}
           initialPlan={activeProject.plan}
+          initialUnderlay={activeProject.underlay}
           isDarkTheme={isDarkTheme}
           isSignedIn={true}
           isGuestSession={isGuestSession}
+          isUserProActive={isUserProActive}
           onOpenProUpgrade={() => setShowGlobalProModal(true)}
           onToggleTheme={() => setIsDarkTheme((d) => !d)}
           onSaveProject={handleSaveActiveProject}
@@ -457,6 +467,7 @@ export default function App() {
           onSignOut={handleSignOut}
           onOpenAdminPanel={() => setShowAdminPanel(true)}
           onOpenNewBlank={handleOpenNewBlank}
+          onOpenSketchModal={() => setShowSketchModal(true)}
           onOpenTemplate={handleOpenTemplate}
           onOpenWithCatalogItem={handleOpenWithCatalogItem}
           onOpenProject={handleOpenProject}
@@ -540,6 +551,27 @@ export default function App() {
         isUserProActive={isUserProActive}
         onClose={() => setShowGlobalProModal(false)}
         onSubmitOrder={handleSubmitProOrder}
+      />
+
+      <SketchToPlanModal
+        isOpen={showSketchModal}
+        brandName={brandName}
+        isUserProActive={isUserProActive}
+        onClose={() => setShowSketchModal(false)}
+        onOpenProUpgrade={() => {
+          setShowSketchModal(false);
+          setShowGlobalProModal(true);
+        }}
+        onApplySketchPlan={({ title, floorPlan, underlay }) => {
+          const newId = sanitizeId(`proj_${Date.now()}`);
+          setActiveProject({
+            projectId: newId,
+            isExisting: false,
+            title,
+            plan: floorPlan,
+            underlay: underlay ?? null,
+          });
+        }}
       />
 
       {isAdminAuthorized && (

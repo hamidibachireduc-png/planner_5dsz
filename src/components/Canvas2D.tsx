@@ -8,6 +8,7 @@ import {
   Opening,
   Room,
   SelectionTarget,
+  SketchUnderlayConfig,
   UnitType,
   Wall,
 } from '../types/planner';
@@ -18,6 +19,7 @@ interface Canvas2DProps {
   selection: SelectionTarget;
   snapEnabled: boolean;
   isDarkTheme: boolean;
+  sketchUnderlay?: SketchUnderlayConfig | null;
   onSelect: (target: SelectionTarget) => void;
   onChangeFloorPlan: (next: FloorPlanData, commitHistory?: boolean) => void;
   onToolResetToSelect: () => void;
@@ -72,6 +74,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
   selection,
   snapEnabled,
   isDarkTheme,
+  sketchUnderlay,
   onSelect,
   onChangeFloorPlan,
   onToolResetToSelect,
@@ -84,8 +87,32 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
   const [wallDraftStart, setWallDraftStart] = useState<{ x: number; z: number } | null>(null);
   const [hoverWorld, setHoverWorld] = useState<{ x: number; z: number } | null>(null);
   const dragRef = useRef<DragState>(null);
+  const underlayImgRef = useRef<HTMLImageElement | null>(null);
+  const [underlayRevision, setUnderlayRevision] = useState(0);
+  const activePointersRef = useRef<Map<number, { clientX: number; clientY: number }>>(new Map());
+  const pinchRef = useRef<{
+    startDist: number;
+    startScale: number;
+    startPanX: number;
+    startPanZ: number;
+    midWorldX: number;
+    midWorldZ: number;
+  } | null>(null);
   const latestPlanRef = useRef<FloorPlanData>(floorPlan);
   latestPlanRef.current = floorPlan;
+
+  useEffect(() => {
+    if (!sketchUnderlay?.dataUrl) {
+      underlayImgRef.current = null;
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      underlayImgRef.current = img;
+      setUnderlayRevision((n) => n + 1);
+    };
+    img.src = sketchUnderlay.dataUrl;
+  }, [sketchUnderlay?.dataUrl]);
 
   const snapVal = useCallback(
     (v: number) => (snapEnabled ? Math.round(v * 4) / 4 : Math.round(v * 20) / 20),
@@ -212,6 +239,27 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         ctx.lineTo(w, sy);
       }
       ctx.stroke();
+
+      // Optional Pro Sketch Underlay Image (centered around 0,0)
+      if (
+        sketchUnderlay?.visible &&
+        underlayImgRef.current &&
+        underlayImgRef.current.complete &&
+        underlayImgRef.current.naturalWidth > 0
+      ) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0.08, Math.min(0.9, sketchUnderlay.opacity));
+        const uw = sketchUnderlay.widthM * view.scale;
+        const uh = sketchUnderlay.depthM * view.scale;
+        ctx.drawImage(
+          underlayImgRef.current,
+          toSX(-sketchUnderlay.widthM / 2),
+          toSY(-sketchUnderlay.depthM / 2),
+          uw,
+          uh
+        );
+        ctx.restore();
+      }
 
       // 1. Rooms
       floorPlan.rooms.forEach((room) => {
@@ -630,7 +678,17 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
     const ro = new ResizeObserver(draw);
     ro.observe(container);
     return () => ro.disconnect();
-  }, [floorPlan, view, selection, isDarkTheme, activeTool, wallDraftStart, hoverWorld]);
+  }, [
+    floorPlan,
+    view,
+    selection,
+    isDarkTheme,
+    activeTool,
+    wallDraftStart,
+    hoverWorld,
+    sketchUnderlay,
+    underlayRevision,
+  ]);
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
@@ -644,7 +702,32 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.setPointerCapture(e.pointerId);
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore synthetic pointer events
+    }
+
+    activePointersRef.current.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+
+    // Two-finger pinch-to-zoom & pan on touchscreens
+    if (activePointersRef.current.size === 2) {
+      const pts = Array.from(activePointersRef.current.values());
+      const dist = Math.hypot(pts[1].clientX - pts[0].clientX, pts[1].clientY - pts[0].clientY);
+      const midClientX = (pts[0].clientX + pts[1].clientX) / 2;
+      const midClientY = (pts[0].clientY + pts[1].clientY) / 2;
+      const midWorld = screenToWorld(midClientX, midClientY);
+      dragRef.current = null;
+      pinchRef.current = {
+        startDist: Math.max(10, dist),
+        startScale: view.scale,
+        startPanX: view.panX,
+        startPanZ: view.panZ,
+        midWorldX: midWorld.x,
+        midWorldZ: midWorld.z,
+      };
+      return;
+    }
 
     // Middle mouse or Shift+drag pans
     if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
@@ -658,6 +741,8 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
       return;
     }
 
+    const isTouch = e.pointerType === 'touch';
+    const handleHitPx = isTouch ? 28 : 14;
     const rawWorld = screenToWorld(e.clientX, e.clientY);
     const wx = snapVal(rawWorld.x);
     const wz = snapVal(rawWorld.z);
@@ -694,11 +779,12 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
     }
 
     if (activeTool === 'door' || activeTool === 'window') {
-      // Find closest wall within 0.5m
+      // Find closest wall (wider tolerance on touchscreens)
       let best: { wall: Wall; dist: number; t: number } | null = null;
+      const wallSnapRadius = isTouch ? 0.85 : 0.55;
       for (const wall of floorPlan.walls) {
         const hit = distToSegment(rawWorld.x, rawWorld.z, wall.x1, wall.z1, wall.x2, wall.z2);
-        if (hit.dist < 0.55 && (!best || hit.dist < best.dist)) {
+        if (hit.dist < wallSnapRadius && (!best || hit.dist < best.dist)) {
           best = { wall, dist: hit.dist, t: hit.t };
         }
       }
@@ -734,7 +820,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         const handleDist = selItem.depth / 2 + 20 / view.scale;
         const hx = selItem.x - Math.sin(selItem.rotation) * handleDist;
         const hz = selItem.z - Math.cos(selItem.rotation) * handleDist;
-        if (Math.hypot(rawWorld.x - hx, rawWorld.z - hz) < 14 / view.scale) {
+        if (Math.hypot(rawWorld.x - hx, rawWorld.z - hz) < handleHitPx / view.scale) {
           dragRef.current = {
             kind: 'furniture_rotate',
             id: selItem.id,
@@ -751,11 +837,11 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
     if (selection?.kind === 'wall') {
       const selWall = floorPlan.walls.find((w) => w.id === selection.id);
       if (selWall) {
-        if (Math.hypot(rawWorld.x - selWall.x1, rawWorld.z - selWall.z1) < 14 / view.scale) {
+        if (Math.hypot(rawWorld.x - selWall.x1, rawWorld.z - selWall.z1) < handleHitPx / view.scale) {
           dragRef.current = { kind: 'wall_point', id: selWall.id, point: 'p1', initial: floorPlan };
           return;
         }
-        if (Math.hypot(rawWorld.x - selWall.x2, rawWorld.z - selWall.z2) < 14 / view.scale) {
+        if (Math.hypot(rawWorld.x - selWall.x2, rawWorld.z - selWall.z2) < handleHitPx / view.scale) {
           dragRef.current = { kind: 'wall_point', id: selWall.id, point: 'p2', initial: floorPlan };
           return;
         }
@@ -771,7 +857,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
             rawWorld.x - (selRoom.x + selRoom.width),
             rawWorld.z - (selRoom.z + selRoom.depth)
           ) <
-          14 / view.scale
+          handleHitPx / view.scale
         ) {
           dragRef.current = { kind: 'room_resize', id: selRoom.id, initial: floorPlan };
           return;
@@ -780,6 +866,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
     }
 
     // 4. Hit-test furniture (topmost first, excluding rugs unless clicked away from items)
+    const furnPad = isTouch ? 0.24 : 0.12;
     const sortedFurn = [...floorPlan.furniture].reverse().sort((a, b) => {
       if (a.type === 'rug' && b.type !== 'rug') return 1;
       if (b.type === 'rug' && a.type !== 'rug') return -1;
@@ -792,7 +879,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
       const sin = Math.sin(item.rotation);
       const lx = dx * cos - dz * sin;
       const lz = dx * sin + dz * cos;
-      if (Math.abs(lx) <= item.width / 2 + 0.12 && Math.abs(lz) <= item.depth / 2 + 0.12) {
+      if (Math.abs(lx) <= item.width / 2 + furnPad && Math.abs(lz) <= item.depth / 2 + furnPad) {
         onSelect({ kind: 'furniture', id: item.id });
         dragRef.current = {
           kind: 'furniture_move',
@@ -811,7 +898,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
       if (!wall) continue;
       const ox = wall.x1 + (wall.x2 - wall.x1) * op.offsetRatio;
       const oz = wall.z1 + (wall.z2 - wall.z1) * op.offsetRatio;
-      if (Math.hypot(rawWorld.x - ox, rawWorld.z - oz) < Math.max(0.45, op.width / 2)) {
+      if (Math.hypot(rawWorld.x - ox, rawWorld.z - oz) < Math.max(isTouch ? 0.65 : 0.45, op.width / 2)) {
         onSelect({ kind: 'opening', id: op.id });
         dragRef.current = { kind: 'opening_slide', id: op.id, wall, initial: floorPlan };
         return;
@@ -821,7 +908,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
     // 6. Hit-test walls
     for (const wall of floorPlan.walls) {
       const hit = distToSegment(rawWorld.x, rawWorld.z, wall.x1, wall.z1, wall.x2, wall.z2);
-      if (hit.dist < Math.max(0.22, (wall.thickness || 0.16) / 2 + 0.1)) {
+      if (hit.dist < Math.max(isTouch ? 0.34 : 0.22, (wall.thickness || 0.16) / 2 + (isTouch ? 0.2 : 0.1))) {
         onSelect({ kind: 'wall', id: wall.id });
         return;
       }
@@ -859,6 +946,29 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (activePointersRef.current.has(e.pointerId)) {
+      activePointersRef.current.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+    }
+
+    // Pinch-to-zoom and 2-finger pan
+    if (activePointersRef.current.size === 2 && pinchRef.current && canvasRef.current) {
+      const pts = Array.from(activePointersRef.current.values());
+      const dist = Math.hypot(pts[1].clientX - pts[0].clientX, pts[1].clientY - pts[0].clientY);
+      const midClientX = (pts[0].clientX + pts[1].clientX) / 2;
+      const midClientY = (pts[0].clientY + pts[1].clientY) / 2;
+      const ratio = dist / pinchRef.current.startDist;
+      const nextScale = Math.max(18, Math.min(130, pinchRef.current.startScale * ratio));
+      const rect = canvasRef.current.getBoundingClientRect();
+      const sx = midClientX - rect.left - rect.width / 2;
+      const sy = midClientY - rect.top - rect.height / 2;
+      setView({
+        scale: nextScale,
+        panX: pinchRef.current.midWorldX - sx / nextScale,
+        panZ: pinchRef.current.midWorldZ - sy / nextScale,
+      });
+      return;
+    }
+
     const rawWorld = screenToWorld(e.clientX, e.clientY);
     const sx = snapVal(rawWorld.x);
     const sz = snapVal(rawWorld.z);
@@ -985,7 +1095,12 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
     }
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    activePointersRef.current.delete(e.pointerId);
+    if (activePointersRef.current.size < 2) {
+      pinchRef.current = null;
+    }
+
     const drag = dragRef.current;
     dragRef.current = null;
     if (!drag) return;
@@ -1083,14 +1198,15 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        className={`w-full h-full block ${
+        onPointerCancel={handlePointerUp}
+        className={`w-full h-full block touch-none ${
           activeTool === 'select' ? 'cursor-default' : 'cursor-crosshair'
         }`}
       />
 
       {/* Tool instructional toast at top-center */}
       {activeTool !== 'select' && (
-        <div className="pointer-events-none absolute top-4 left-1/2 -translate-x-1/2 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-slate-900 px-4 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 shadow-sm">
+        <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 max-w-[92vw] text-center rounded-lg border border-blue-200 dark:border-blue-800 bg-white/95 dark:bg-slate-900/95 px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-blue-700 dark:text-blue-300 shadow-sm">
           {activeTool === 'room' && 'اسحب على المخطط لرسم غرفة جديدة بجدرانها الأربعة'}
           {activeTool === 'wall' &&
             (wallDraftStart
@@ -1102,22 +1218,22 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
       )}
 
       {/* Bottom Zoom Controls */}
-      <div className="absolute bottom-4 left-4 flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-sm">
+      <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 flex items-center gap-0.5 sm:gap-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 p-1 shadow-sm">
         <button
           type="button"
           onClick={() => setView((v) => ({ ...v, scale: Math.min(130, v.scale * 1.15) }))}
-          className="p-1.5 rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="p-2 sm:p-1.5 rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
           title="تكبير"
         >
           <Plus className="w-4 h-4" />
         </button>
-        <span className="px-2 text-xs font-mono-nums text-slate-600 dark:text-slate-300">
+        <span className="px-1.5 sm:px-2 text-[11px] sm:text-xs font-mono-nums text-slate-600 dark:text-slate-300">
           {Math.round((view.scale / 48) * 100)}%
         </span>
         <button
           type="button"
           onClick={() => setView((v) => ({ ...v, scale: Math.max(18, v.scale * 0.85) }))}
-          className="p-1.5 rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="p-2 sm:p-1.5 rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 flex items-center justify-center"
           title="تصغير"
         >
           <Minus className="w-4 h-4" />
@@ -1126,7 +1242,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         <button
           type="button"
           onClick={fitView}
-          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap shrink-0"
+          className="inline-flex items-center gap-1 px-2.5 sm:px-2 py-2 sm:py-1 rounded-md text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 whitespace-nowrap shrink-0"
           title="ملاءمة المخطط"
         >
           <Maximize2 className="w-3.5 h-3.5" />
