@@ -1,5 +1,4 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { User } from 'firebase/auth';
 import {
   ArrowLeft,
   Check,
@@ -12,7 +11,6 @@ import {
   HardDriveDownload,
   Home,
   Lock,
-  LogIn,
   LogOut,
   Moon,
   Plus,
@@ -24,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import { BRAND_LOGO_URL, TEMPLATE_IMAGES } from '../utils/assets';
+import { ActiveAuthSession } from '../utils/authStore';
 import { formatDzd } from '../data/algeriaMarketPrices';
 import {
   CatalogItemDef,
@@ -50,11 +49,8 @@ import { TemplateBlueprintPreview } from './TemplateBlueprintPreview';
 
 interface LandingShowcaseProps {
   brandName: string;
-  user: User | null;
-  authReady: boolean;
-  isAdmin: boolean;
+  sessionUser: ActiveAuthSession;
   isAdminAuthorized: boolean;
-  activeClientName?: string | null;
   isUserProActive: boolean;
   projects: ProjectRecord[];
   loadingProjects: boolean;
@@ -63,8 +59,7 @@ interface LandingShowcaseProps {
   isDarkTheme: boolean;
   onToggleTheme: () => void;
   onUpdateBrandName: (name: string) => Promise<void>;
-  onSignIn: () => Promise<void>;
-  onSignOut: () => Promise<void>;
+  onSignOut: () => void;
   onOpenAdminPanel: () => void;
   onOpenNewBlank: () => void;
   onOpenTemplate: (template: StarterTemplate) => void;
@@ -112,11 +107,8 @@ const ImageWithFallback: React.FC<{
 
 export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
   brandName,
-  user,
-  authReady,
-  isAdmin,
+  sessionUser,
   isAdminAuthorized,
-  activeClientName,
   isUserProActive,
   projects,
   loadingProjects,
@@ -125,7 +117,6 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
   isDarkTheme,
   onToggleTheme,
   onUpdateBrandName,
-  onSignIn,
   onSignOut,
   onOpenAdminPanel,
   onOpenNewBlank,
@@ -793,31 +784,21 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
                 مشاريعي المحفوظة والحفظ داخل الجهاز
               </h2>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                {user
-                  ? `متصل بحساب ${user.email || user.displayName} — المزامنة السحابية مفعّلة مع إمكانية تنزيل مشاريعك إلى جهازك.`
-                  : activeClientName
-                  ? `مرحباً ${activeClientName} — يمكنك حفظ مشاريعك داخل جهازك أو ربط حساب Google للمزامنة السحابية.`
-                  : 'احفظ مشاريعك كملفات داخل جهازك واستوردها في أي وقت، أو سجّل الدخول للمزامنة السحابية.'}
+                {`مرحباً ${sessionUser.displayName} (${sessionUser.username}) — ${
+                  isUserProActive ? 'باقة برو مفعّلة بالكامل' : 'الخطة المجانية'
+                }. احفظ مشاريعك في المتصفح أو نزّلها داخل جهازك.`}
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={onOpenAdminPanel}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50/70 dark:bg-blue-950/30 px-3.5 py-2 text-xs font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors whitespace-nowrap shrink-0"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>{isAdminAuthorized ? 'لوحة الإدارة (تفعيل الحسابات)' : 'دخول الإدارة'}</span>
-              </button>
-              {authReady && !user && (
+              {isAdminAuthorized && (
                 <button
                   type="button"
-                  onClick={onSignIn}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+                  onClick={onOpenAdminPanel}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50/70 dark:bg-blue-950/30 px-3.5 py-2 text-xs font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors whitespace-nowrap shrink-0"
                 >
-                  <LogIn className="w-3.5 h-3.5 text-blue-600" />
-                  <span>ربط حساب Google</span>
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>لوحة الإدارة (إدارة المشتركين)</span>
                 </button>
               )}
               <button
@@ -1045,10 +1026,10 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
             </div>
             <div className="md:col-span-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181B20] p-6 space-y-2">
               <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
-                06. مزامنة سحابية واشتراك برو محلي
+                06. حفظ محلي مباشر واشتراك برو
               </h3>
               <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                احفظ مشاريعك سحابياً عبر حساب Google واستفد من باقة برو عبر بريدي موب أو فليكسي (+10%) مع تأكيد فوري عبر الواتساب أو الفيسبوك.
+                احفظ مشاريعك مباشرة داخل جهازك بصيغة JSON واستفد من باقة برو عبر بريدي موب أو فليكسي (+10%) مع تأكيد فوري عبر الواتساب أو الفيسبوك والحصول على اسم مستخدم ورقم سري مباشر.
               </p>
             </div>
           </div>
@@ -1060,8 +1041,8 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
         {/* Pro Subscription (BaridiMob & Flexy +10%) */}
         <ProSubscriptionSection
           brandName={brandName}
-          isAdmin={isAdmin}
-          isSignedIn={Boolean(user)}
+          isAdmin={isAdminAuthorized}
+          isSignedIn={true}
           facebookUrl={facebookUrl}
           orders={proOrders}
           onSaveFacebookUrl={onSaveFacebookUrl}
@@ -1152,13 +1133,15 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
             >
               اشتراك برو
             </button>
-            <button
-              type="button"
-              onClick={onOpenAdminPanel}
-              className="hover:text-slate-900 dark:hover:text-white cursor-pointer"
-            >
-              لوحة الإدارة
-            </button>
+            {isAdminAuthorized && (
+              <button
+                type="button"
+                onClick={onOpenAdminPanel}
+                className="hover:text-slate-900 dark:hover:text-white cursor-pointer"
+              >
+                لوحة الإدارة
+              </button>
+            )}
             <a href="#brand" className="hover:text-slate-900 dark:hover:text-white">
               الهوية
             </a>
@@ -1238,11 +1221,10 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
         isOpen={showProSubscribeModal}
         brandName={brandName}
         facebookUrl={facebookUrl}
-        userEmail={user?.email}
-        isSignedIn={Boolean(user)}
+        userEmail={sessionUser.username}
+        isSignedIn={true}
         isUserProActive={isUserProActive}
         onClose={() => setShowProSubscribeModal(false)}
-        onSignIn={onSignIn}
         onSubmitOrder={onSubmitProOrder}
       />
     </div>

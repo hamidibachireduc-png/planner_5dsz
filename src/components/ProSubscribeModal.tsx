@@ -7,7 +7,6 @@ import {
   CreditCard,
   Crown,
   ExternalLink,
-  LogIn,
   MessageCircle,
   Phone,
   ShieldCheck,
@@ -36,7 +35,6 @@ interface ProSubscribeModalProps {
   isSignedIn: boolean;
   isUserProActive: boolean;
   onClose: () => void;
-  onSignIn?: () => Promise<void>;
   onSubmitOrder: (
     order: Omit<ProSubscriptionOrder, 'id' | 'ownerId' | 'status' | 'createdAtMs'>
   ) => Promise<void>;
@@ -47,10 +45,8 @@ export const ProSubscribeModal: React.FC<ProSubscribeModalProps> = ({
   brandName,
   facebookUrl,
   userEmail,
-  isSignedIn,
   isUserProActive,
   onClose,
-  onSignIn,
   onSubmitOrder,
 }) => {
   const [planType, setPlanType] = useState<ProPlanType>('monthly');
@@ -89,8 +85,8 @@ export const ProSubscribeModal: React.FC<ProSubscribeModalProps> = ({
       paymentMethod === 'baridimob'
         ? `بريدي موب (RIP: ${BARIDIMOB_RIP})`
         : `فليكسي +10% (${FLEXY_PHONE})`;
-    const emailPart = userEmail ? `، البريد المسجل: ${userEmail}` : '';
-    return `السلام عليكم ${brandName}، قمت بتحويل مبلغ ${pricing.total.toLocaleString('en-US')} د.ج لتفعيل ${pricing.plan.label} عبر ${methodLabel}. الاسم: ${customerName.trim() || '—'}، الهاتف: ${contactPhone.trim() || '—'}${emailPart}. مرفق صورة الوصل لتفعيل حسابي.`;
+    const userPart = userEmail ? `، اسم المستخدم الحالي: ${userEmail}` : '';
+    return `السلام عليكم ${brandName}، قمت بتحويل مبلغ ${pricing.total.toLocaleString('en-US')} د.ج لتفعيل ${pricing.plan.label} عبر ${methodLabel}. الاسم: ${customerName.trim() || '—'}، الهاتف: ${contactPhone.trim() || '—'}${userPart}. مرفق صورة الوصل للحصول على اسم المستخدم والرقم السري.`;
   }, [brandName, paymentMethod, pricing, customerName, contactPhone, userEmail]);
 
   const whatsappUrl = useMemo(
@@ -138,7 +134,7 @@ export const ProSubscribeModal: React.FC<ProSubscribeModalProps> = ({
         receiptNote: receiptNote.trim(),
       });
       setSubmittedMsg(
-        'تم تسجيل طلب الاشتراك بنجاح! أرسل الآن لقطة شاشة الوصل عبر الواتساب أو الفيسبوك أعلاه ليقوم المشرف بتفعيل باقة برو على حسابك.'
+        'تم تسجيل طلب الاشتراك بنجاح! أرسل الآن لقطة شاشة الوصل عبر الواتساب أو الفيسبوك أعلاه ليقوم المدير بتزويدك باسم المستخدم والرقم السري.'
       );
       setReceiptNote('');
     } catch {
@@ -414,15 +410,14 @@ export const ProSubscribeModal: React.FC<ProSubscribeModalProps> = ({
                   03. أرسل صورة الوصل إلى الإدارة لتفعيل حسابك فوراً
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
-                  أرسل صورة الوصل عبر <strong>واتساب ({FLEXY_PHONE})</strong> أو <strong>حساب فيسبوك</strong> وأرفق بريدك الإلكتروني المسجل به في المنصة{' '}
+                  أرسل صورة الوصل عبر <strong>واتساب ({FLEXY_PHONE})</strong> أو <strong>حساب فيسبوك</strong> وسيرد عليك المدير مباشرة بـ{' '}
+                  <strong>اسم المستخدم والرقم السري</strong> الخاصين بتفعيل باقة برو على حسابك
                   {userEmail ? (
                     <span dir="ltr" className="font-mono-nums font-semibold text-slate-900 dark:text-white">
-                      ({userEmail})
+                      {' '}({userEmail})
                     </span>
-                  ) : (
-                    <span>(أو رقم هاتفك)</span>
-                  )}{' '}
-                  لتتم مراجعة الوصل وتفعيل باقة برو مباشرة.
+                  ) : null}
+                  .
                 </p>
               </div>
 
@@ -469,22 +464,12 @@ export const ProSubscribeModal: React.FC<ProSubscribeModalProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h3 className="font-display text-base font-bold text-slate-900 dark:text-white">
-                  04. سجّل طلب التفعيل في المنصة (اختياري لتسريع المطابقة)
+                  04. سجّل طلب التفعيل ليصلك اسم المستخدم والرقم السري
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  توثيق الطلب هنا يربطه مباشرة بحسابك ليظهر للمشرف فور إرسال الوصل.
+                  توثيق الطلب هنا يساعد الإدارة على إصدار اسم المستخدم والرقم السري لك فور مراجعة الوصل.
                 </p>
               </div>
-              {!isSignedIn && onSignIn && (
-                <button
-                  type="button"
-                  onClick={() => onSignIn()}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 self-start"
-                >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>تسجيل الدخول بـ Google أولاً</span>
-                </button>
-              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

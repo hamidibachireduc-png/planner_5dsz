@@ -491,7 +491,7 @@ export const ProSubscriptionSection: React.FC<ProSubscriptionSectionProps> = ({
 
             {!isSignedIn && (
               <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center">
-                يمكنك التسجيل بحساب Google في قسم المشاريع لمزامنة حالة الاشتراك عبر السحابة.
+                بعد مراجعة الوصل، يرسل لك المدير اسم المستخدم والرقم السري للدخول مباشرة إلى باقة برو.
               </p>
             )}
           </form>

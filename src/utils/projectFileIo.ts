@@ -1,5 +1,5 @@
 import { computeFloorPlanMetrics } from '../data/catalog';
-import { sanitizeId } from '../firebase';
+import { sanitizeId } from './authStore';
 import {
   FloorPlanData,
   FurnitureCategory,

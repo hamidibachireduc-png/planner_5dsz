@@ -314,7 +314,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
     setSaveFeedback(null);
     try {
       await onSaveProject(title, floorPlan);
-      setSaveFeedback(isSignedIn ? 'تم الحفظ في السحابة' : 'تم الحفظ محلياً');
+      setSaveFeedback(isSignedIn ? 'تم حفظ المشروع بنجاح' : 'تم الحفظ محلياً');
       setTimeout(() => setSaveFeedback(null), 2600);
     } catch {
       setSaveFeedback('تعذر الحفظ، حاول مجدداً');

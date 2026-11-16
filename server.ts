@@ -196,9 +196,116 @@ async function getMarketSnapshot(region: AlgeriaRegion, forceRefresh: boolean): 
   return snapshot;
 }
 
+interface ServerSubscriberRecord {
+  id: string;
+  displayName: string;
+  username: string;
+  password: string;
+  proActive: boolean;
+  proPlan: 'free' | 'monthly' | 'annual';
+  active: boolean;
+  expiresAtMs: number | null;
+  phone?: string;
+  notes?: string;
+  createdAtMs: number;
+  isUniversalPasskey?: boolean;
+}
+
+const SUBSCRIBERS_DIR = path.resolve(process.cwd(), '.data');
+const SUBSCRIBERS_FILE = path.join(SUBSCRIBERS_DIR, 'subscribers.json');
+
+function readServerSubscribers(): ServerSubscriberRecord[] {
+  try {
+    if (!fs.existsSync(SUBSCRIBERS_FILE)) return [];
+    const raw = fs.readFileSync(SUBSCRIBERS_FILE, 'utf-8');
+    const parsed = JSON.parse(raw) as ServerSubscriberRecord[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeServerSubscribers(list: ServerSubscriberRecord[]): void {
+  try {
+    fs.mkdirSync(SUBSCRIBERS_DIR, { recursive: true });
+    fs.writeFileSync(SUBSCRIBERS_FILE, JSON.stringify(list, null, 2), 'utf-8');
+  } catch {
+    // Ignore write failures in read-only containers
+  }
+}
+
 async function startServer() {
   const app = express();
   app.use(express.json());
+
+  app.get('/api/subscribers', (_req, res) => {
+    res.json({ subscribers: readServerSubscribers() });
+  });
+
+  app.post('/api/subscribers', (req, res) => {
+    const incoming = req.body as Partial<ServerSubscriberRecord>;
+    if (!incoming?.username || !incoming?.password) {
+      res.status(400).json({ error: 'اسم المستخدم والرقم السري مطلوبان.' });
+      return;
+    }
+    const cleanUsername = String(incoming.username).trim();
+    const list = readServerSubscribers();
+    const record: ServerSubscriberRecord = {
+      id: String(incoming.id || `sub_${Date.now()}`),
+      displayName: String(incoming.displayName || cleanUsername).trim().slice(0, 120),
+      username: cleanUsername.slice(0, 120),
+      password: String(incoming.password).trim().slice(0, 120),
+      proActive: Boolean(incoming.proActive),
+      proPlan:
+        incoming.proPlan === 'annual' || incoming.proPlan === 'monthly'
+          ? incoming.proPlan
+          : 'free',
+      active: incoming.active !== false,
+      expiresAtMs: typeof incoming.expiresAtMs === 'number' ? incoming.expiresAtMs : null,
+      phone: incoming.phone ? String(incoming.phone).slice(0, 30) : undefined,
+      notes: incoming.notes ? String(incoming.notes).slice(0, 240) : undefined,
+      createdAtMs: typeof incoming.createdAtMs === 'number' ? incoming.createdAtMs : Date.now(),
+      isUniversalPasskey: Boolean(incoming.isUniversalPasskey),
+    };
+    const idx = list.findIndex(
+      (s) => s.id === record.id || s.username.toLowerCase() === cleanUsername.toLowerCase()
+    );
+    const next = idx >= 0 ? list.map((s, i) => (i === idx ? record : s)) : [record, ...list];
+    writeServerSubscribers(next);
+    res.json({ ok: true, subscriber: record });
+  });
+
+  app.delete('/api/subscribers/:id', (req, res) => {
+    const id = req.params.id;
+    const next = readServerSubscribers().filter((s) => s.id !== id);
+    writeServerSubscribers(next);
+    res.json({ ok: true });
+  });
+
+  app.post('/api/subscribers/login', (req, res) => {
+    const { username, password } = (req.body || {}) as { username?: string; password?: string };
+    const cleanUser = String(username || '').trim().toLowerCase();
+    const cleanPass = String(password || '').trim();
+    const list = readServerSubscribers();
+    const found = list.find((s) => s.username.trim().toLowerCase() === cleanUser);
+    if (!found) {
+      res.status(404).json({ ok: false });
+      return;
+    }
+    if (found.password !== cleanPass && found.password.toUpperCase() !== cleanPass.toUpperCase()) {
+      res.status(403).json({ ok: false, error: 'الرقم السري غير صحيح.' });
+      return;
+    }
+    if (!found.active) {
+      res.status(403).json({ ok: false, error: 'تم تعطيل هذا الحساب من طرف الإدارة.' });
+      return;
+    }
+    if (found.expiresAtMs && Date.now() > found.expiresAtMs) {
+      res.status(403).json({ ok: false, error: 'انتهت مدة صلاحية هذا الحساب.' });
+      return;
+    }
+    res.json({ ok: true, subscriber: found });
+  });
 
   app.get('/api/algeria-market-prices', async (req, res) => {
     const region = normalizeRegion(req.query.region);
