@@ -40,23 +40,28 @@ import {
 import { formatDzd } from '../data/algeriaMarketPrices';
 import { BRAND_LOGO_URL } from '../utils/assets';
 import {
+  DRAWING_SPACE_PRESETS,
   FLOOR_STYLES,
   FURNITURE_CATALOG,
   FURNITURE_CATEGORIES,
   MATERIAL_SWATCHES,
+  StyleOrigin,
   WALL_COLOR_SWATCHES,
   computeFloorPlanMetrics,
 } from '../data/catalog';
 import {
+  DrawingSpacePreset,
   EditorTool,
   FloorPlanData,
   FurnitureCategory,
   FurnitureItem,
+  Room,
   RoomFloorStyle,
   SelectionTarget,
   SketchUnderlayConfig,
   UnitType,
   ViewMode,
+  Wall,
 } from '../types/planner';
 import { AlgeriaCostCalculator } from './AlgeriaCostCalculator';
 import { Canvas2D } from './Canvas2D';
@@ -105,6 +110,9 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
     typeof window !== 'undefined' && window.innerWidth < 768 ? '2d' : 'split'
   );
   const [activeTool, setActiveTool] = useState<EditorTool>('select');
+  const [activeSpacePreset, setActiveSpacePreset] = useState<DrawingSpacePreset>(
+    DRAWING_SPACE_PRESETS[0]
+  );
   const [selection, setSelection] = useState<SelectionTarget>(null);
   const [snapEnabled, setSnapEnabled] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<'catalog' | 'calculator'>('catalog');
@@ -121,6 +129,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   );
   const [catalogCategory, setCatalogCategory] = useState<FurnitureCategory | 'all'>('all');
   const [catalogQuery, setCatalogQuery] = useState('');
+  const [finishOriginFilter, setFinishOriginFilter] = useState<'all' | StyleOrigin>('all');
   const [useCatalogPrices, setUseCatalogPrices] = useState(true);
   const [catalogVisibleLimit, setCatalogVisibleLimit] = useState(36);
   const importFileRef = React.useRef<HTMLInputElement | null>(null);
@@ -226,6 +235,72 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
       }
     },
     [historyIdx]
+  );
+
+  const insertPresetRoom = useCallback(
+    (preset: DrawingSpacePreset) => {
+      let x = -preset.defaultWidth / 2;
+      let z = -preset.defaultDepth / 2;
+
+      if (floorPlan.rooms.length > 0) {
+        let maxX = -Infinity;
+        let minZ = Infinity;
+        for (const r of floorPlan.rooms) {
+          maxX = Math.max(maxX, r.x + r.width);
+          minZ = Math.min(minZ, r.z);
+        }
+        x = Number((maxX + 0.25).toFixed(2));
+        z = Number(minZ.toFixed(2));
+      } else if (floorPlan.walls.length > 0) {
+        let maxX = -Infinity;
+        let minZ = Infinity;
+        for (const w of floorPlan.walls) {
+          maxX = Math.max(maxX, w.x1, w.x2);
+          minZ = Math.min(minZ, w.z1, w.z2);
+        }
+        x = Number((maxX + 0.25).toFixed(2));
+        z = Number(minZ.toFixed(2));
+      }
+
+      const sameCount = floorPlan.rooms.filter(
+        (r) => r.name === preset.roomName || r.name.startsWith(`${preset.roomName} `)
+      ).length;
+      const roomName = sameCount === 0 ? preset.roomName : `${preset.roomName} ${sameCount + 1}`;
+      const ts = Date.now();
+      const roomId = `room_${ts}`;
+      const h = floorPlan.wallHeight;
+      const w = preset.defaultWidth;
+      const d = preset.defaultDepth;
+
+      const newRoom: Room = {
+        id: roomId,
+        name: roomName,
+        x,
+        z,
+        width: w,
+        depth: d,
+        floorStyle: preset.floorStyle,
+      };
+      const newWalls: Wall[] = [
+        { id: `w_${ts}_1`, x1: x, z1: z, x2: x + w, z2: z, thickness: 0.16, height: h, color: '#F5F2EB' },
+        { id: `w_${ts}_2`, x1: x + w, z1: z, x2: x + w, z2: z + d, thickness: 0.16, height: h, color: '#F5F2EB' },
+        { id: `w_${ts}_3`, x1: x + w, z1: z + d, x2: x, z2: z + d, thickness: 0.16, height: h, color: '#F5F2EB' },
+        { id: `w_${ts}_4`, x1: x, z1: z + d, x2: x, z2: z, thickness: 0.16, height: h, color: '#F5F2EB' },
+      ];
+
+      updateFloorPlan(
+        {
+          ...floorPlan,
+          rooms: [...floorPlan.rooms, newRoom],
+          walls: [...floorPlan.walls, ...newWalls],
+        },
+        true
+      );
+      setActiveSpacePreset(preset);
+      setSelection({ kind: 'room', id: roomId });
+      setActiveTool('select');
+    },
+    [floorPlan, updateFloorPlan]
   );
 
   const handleUndo = useCallback(() => {
@@ -827,30 +902,73 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                   <span>محاذاة</span>
                 </button>
               </div>
-              <div className="grid grid-cols-5 gap-1">
+              <div className="grid grid-cols-3 gap-1">
                 {(
                   [
                     { id: 'select', label: 'تحديد', Icon: MousePointer },
-                    { id: 'room', label: 'غرفة', Icon: PlusSquare },
+                    { id: 'room', label: 'غرفة/فضاء', Icon: PlusSquare },
                     { id: 'wall', label: 'جدار', Icon: PenTool },
                     { id: 'door', label: 'باب', Icon: DoorOpen },
                     { id: 'window', label: 'نافذة', Icon: Square },
+                    { id: 'arch', label: 'قوس', Icon: Columns2 },
                   ] as const
                 ).map(({ id, label, Icon }) => (
                   <button
                     key={id}
                     type="button"
                     onClick={() => setActiveTool(id)}
-                    className={`flex flex-col items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-medium transition-colors ${
+                    className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${
                       activeTool === id
                         ? 'bg-blue-600 text-white shadow-sm'
                         : 'bg-slate-50 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className="w-3.5 h-3.5" />
                     <span>{label}</span>
                   </button>
                 ))}
+              </div>
+
+              {/* Space Type Presets (Salon, Hall, Kitchen, Garage, Balcony...) */}
+              <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
+                  <span className="font-semibold">نوع الفضاء (رسم أو إدراج)</span>
+                  <span className="font-mono-nums">
+                    {activeSpacePreset.defaultWidth}×{activeSpacePreset.defaultDepth}م
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {DRAWING_SPACE_PRESETS.map((preset) => {
+                    const isSelectedPreset = activeSpacePreset.id === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveSpacePreset(preset);
+                          setActiveTool('room');
+                        }}
+                        className={`px-1 py-1 rounded-md text-[10px] font-medium truncate border transition-colors ${
+                          isSelectedPreset && activeTool === 'room'
+                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300'
+                            : isSelectedPreset
+                              ? 'border-blue-300 dark:border-blue-800 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
+                              : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/70'
+                        }`}
+                        title={`${preset.label} (${preset.defaultWidth}×${preset.defaultDepth} م)`}
+                      >
+                        {preset.label.split(' ')[0]}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => insertPresetRoom(activeSpacePreset)}
+                  className="w-full py-1.5 px-2 rounded-lg border border-blue-200 dark:border-blue-800/80 bg-blue-50/80 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-[11px] font-semibold text-blue-700 dark:text-blue-300 transition-colors"
+                >
+                  + إدراج {activeSpacePreset.label} تلقائياً
+                </button>
               </div>
             </div>
 
@@ -1180,6 +1298,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
               <Canvas2D
                 floorPlan={floorPlan}
                 activeTool={activeTool}
+                roomPreset={activeSpacePreset}
                 selection={selection}
                 snapEnabled={snapEnabled}
                 isDarkTheme={isDarkTheme}
@@ -1259,7 +1378,11 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                     {selectedRoom && 'خصائص الغرفة'}
                     {selectedWall && 'خصائص الجدار'}
                     {selectedOpening &&
-                      (selectedOpening.type === 'door' ? 'خصائص الباب' : 'خصائص النافذة')}
+                      (selectedOpening.type === 'door'
+                        ? 'خصائص الباب'
+                        : selectedOpening.type === 'arch'
+                          ? 'خصائص القوس المعماري'
+                          : 'خصائص النافذة')}
                     {selectedFurniture && selectedFurniture.name}
                   </span>
                 </span>
@@ -1351,12 +1474,55 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                       {areaReport.areaUnitLabel}
                     </span>
                   </div>
-                  <div>
-                    <label className="block font-medium text-slate-600 dark:text-slate-300 mb-2">
-                      مادة الأرضية (3D)
-                    </label>
-                    <div className="space-y-1.5">
-                      {FLOOR_STYLES.map((fs) => (
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="block font-medium text-slate-600 dark:text-slate-300">
+                        السيراميك والأرضية (3D)
+                      </label>
+                      {floorPlan.rooms.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateFloorPlan({
+                              ...floorPlan,
+                              rooms: floorPlan.rooms.map((r) => ({
+                                ...r,
+                                floorStyle: selectedRoom.floorStyle,
+                              })),
+                            })
+                          }
+                          className="text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          تطبيق على كل الغرف
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 dark:bg-slate-900 p-1 text-[11px]">
+                      {(
+                        [
+                          { id: 'all', label: 'الكل' },
+                          { id: 'algerian', label: 'جزائري' },
+                          { id: 'international', label: 'عالمي' },
+                        ] as const
+                      ).map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setFinishOriginFilter(tab.id)}
+                          className={`rounded-md py-1 font-medium transition-colors ${
+                            finishOriginFilter === tab.id
+                              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="space-y-1.5 max-h-60 overflow-y-auto pl-1">
+                      {FLOOR_STYLES.filter(
+                        (fs) => finishOriginFilter === 'all' || fs.origin === finishOriginFilter
+                      ).map((fs) => (
                         <button
                           key={fs.id}
                           type="button"
@@ -1370,17 +1536,28 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                               ),
                             })
                           }
-                          className={`w-full flex items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-right transition-colors ${
+                          className={`w-full flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-right transition-colors ${
                             selectedRoom.floorStyle === fs.id
                               ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
                               : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60'
                           }`}
                         >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span
+                              className="w-4 h-4 rounded border border-black/15 shrink-0"
+                              style={{ backgroundColor: fs.previewColor }}
+                            />
+                            <span className="truncate">{fs.label}</span>
+                          </div>
                           <span
-                            className="w-4 h-4 rounded border border-black/10 shrink-0"
-                            style={{ backgroundColor: fs.previewColor }}
-                          />
-                          <span className="truncate">{fs.label}</span>
+                            className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
+                              fs.origin === 'algerian'
+                                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                : 'bg-slate-500/15 text-slate-600 dark:text-slate-300'
+                            }`}
+                          >
+                            {fs.origin === 'algerian' ? 'جزائري' : 'عالمي'}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -1439,12 +1616,57 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                       />
                     </div>
                   </div>
-                  <div>
-                    <label className="block font-medium text-slate-600 dark:text-slate-300 mb-2">
-                      طلاء الجدار
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {WALL_COLOR_SWATCHES.map((sw) => (
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="block font-medium text-slate-600 dark:text-slate-300">
+                        طلاء وصباغة الجدار
+                      </label>
+                      {floorPlan.walls.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateFloorPlan({
+                              ...floorPlan,
+                              walls: floorPlan.walls.map((w) => ({
+                                ...w,
+                                color: selectedWall.color,
+                              })),
+                            })
+                          }
+                          className="text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          تطبيق على كل الجدران
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 dark:bg-slate-900 p-1 text-[11px]">
+                      {(
+                        [
+                          { id: 'all', label: 'الكل' },
+                          { id: 'algerian', label: 'جزائري' },
+                          { id: 'international', label: 'عالمي' },
+                        ] as const
+                      ).map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setFinishOriginFilter(tab.id)}
+                          className={`rounded-md py-1 font-medium transition-colors ${
+                            finishOriginFilter === tab.id
+                              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2">
+                      {WALL_COLOR_SWATCHES.filter(
+                        (sw) => finishOriginFilter === 'all' || sw.origin === finishOriginFilter
+                      ).map((sw) => (
                         <button
                           key={sw.color}
                           type="button"
@@ -1457,15 +1679,53 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                             })
                           }
                           className={`h-8 rounded-lg border transition-transform ${
-                            selectedWall.color === sw.color
+                            selectedWall.color.toLowerCase() === sw.color.toLowerCase()
                               ? 'border-blue-600 ring-2 ring-blue-500/30 scale-105'
                               : 'border-slate-300 dark:border-slate-700'
                           }`}
                           style={{ backgroundColor: sw.color }}
-                          title={sw.label}
+                          title={`${sw.label}${sw.finish ? ` (${sw.finish})` : ''}`}
                         />
                       ))}
                     </div>
+
+                    {(() => {
+                      const activeSwatch = WALL_COLOR_SWATCHES.find(
+                        (sw) => sw.color.toLowerCase() === selectedWall.color.toLowerCase()
+                      );
+                      return (
+                        <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 px-2.5 py-2">
+                          <div className="min-w-0">
+                            <div className="font-semibold text-slate-800 dark:text-slate-200 truncate">
+                              {activeSwatch ? activeSwatch.label : 'لون صباغة مخصص'}
+                            </div>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                              {activeSwatch
+                                ? `${activeSwatch.origin === 'algerian' ? 'نمط جزائري' : 'نمط عالمي'}${
+                                    activeSwatch.finish ? ` · ${activeSwatch.finish}` : ''
+                                  }`
+                                : selectedWall.color.toUpperCase()}
+                            </div>
+                          </div>
+                          <label className="inline-flex items-center gap-1.5 cursor-pointer shrink-0 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-700 dark:text-slate-200">
+                            <input
+                              type="color"
+                              value={selectedWall.color || '#F5F2EB'}
+                              onChange={(e) =>
+                                updateFloorPlan({
+                                  ...floorPlan,
+                                  walls: floorPlan.walls.map((w) =>
+                                    w.id === selectedWall.id ? { ...w, color: e.target.value } : w
+                                  ),
+                                })
+                              }
+                              className="w-4 h-4 rounded border-0 p-0 bg-transparent cursor-pointer"
+                            />
+                            <span>مخصص</span>
+                          </label>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -1908,7 +2168,15 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                 {mobileSheet === 'inspector' &&
                   (selectedRoom?.name ||
                     selectedFurniture?.name ||
-                    (selectedWall ? 'خصائص الجدار' : 'خصائص العنصر'))}
+                    (selectedOpening
+                      ? selectedOpening.type === 'door'
+                        ? 'خصائص الباب'
+                        : selectedOpening.type === 'arch'
+                          ? 'خصائص القوس المعماري'
+                          : 'خصائص النافذة'
+                      : selectedWall
+                        ? 'خصائص الجدار'
+                        : 'خصائص العنصر'))}
               </span>
               <button
                 type="button"
@@ -1923,14 +2191,15 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             <div className="flex-1 overflow-y-auto studio-scroll p-4 space-y-4">
               {mobileSheet === 'tools' && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-5 gap-1.5">
+                  <div className="grid grid-cols-3 gap-1.5">
                     {(
                       [
                         { id: 'select', label: 'تحديد', Icon: MousePointer },
-                        { id: 'room', label: 'غرفة', Icon: PlusSquare },
+                        { id: 'room', label: 'غرفة/فضاء', Icon: PlusSquare },
                         { id: 'wall', label: 'جدار', Icon: PenTool },
                         { id: 'door', label: 'باب', Icon: DoorOpen },
                         { id: 'window', label: 'نافذة', Icon: Square },
+                        { id: 'arch', label: 'قوس', Icon: Columns2 },
                       ] as const
                     ).map(({ id, label, Icon }) => (
                       <button
@@ -1940,7 +2209,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                           setActiveTool(id);
                           setMobileSheet(null);
                         }}
-                        className={`flex flex-col items-center justify-center gap-1 py-3 rounded-xl text-xs font-medium min-h-[56px] transition-colors ${
+                        className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-xs font-medium min-h-[54px] transition-colors ${
                           activeTool === id
                             ? 'bg-blue-600 text-white shadow-sm'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
@@ -1950,6 +2219,49 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                         <span>{label}</span>
                       </button>
                     ))}
+                  </div>
+
+                  {/* Mobile Space Presets */}
+                  <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-300">
+                      <span className="font-semibold">اختر نوع الفضاء (سحب أو إدراج مباشر)</span>
+                      <span className="font-mono-nums text-[11px]">
+                        {activeSpacePreset.defaultWidth}×{activeSpacePreset.defaultDepth}م
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {DRAWING_SPACE_PRESETS.map((preset) => {
+                        const isSelectedPreset = activeSpacePreset.id === preset.id;
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => {
+                              setActiveSpacePreset(preset);
+                              setActiveTool('room');
+                              setMobileSheet(null);
+                            }}
+                            className={`px-2 py-2 rounded-lg text-[11px] font-medium border truncate transition-colors ${
+                              isSelectedPreset
+                                ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300'
+                                : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/70 text-slate-700 dark:text-slate-200'
+                            }`}
+                          >
+                            {preset.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        insertPresetRoom(activeSpacePreset);
+                        setMobileSheet(null);
+                      }}
+                      className="w-full py-2.5 px-3 rounded-xl bg-blue-600 text-white text-xs font-semibold shadow-sm"
+                    >
+                      + إدراج {activeSpacePreset.label} تلقائياً على المخطط
+                    </button>
                   </div>
 
                   <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
@@ -2193,29 +2505,82 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {FLOOR_STYLES.map((fs) => (
-                          <button
-                            key={fs.id}
-                            type="button"
-                            onClick={() =>
-                              updateFloorPlan({
-                                ...floorPlan,
-                                rooms: floorPlan.rooms.map((r) =>
-                                  r.id === selectedRoom.id ? { ...r, floorStyle: fs.id as RoomFloorStyle } : r
-                                ),
-                              })
-                            }
-                            className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-right ${
-                              selectedRoom.floorStyle === fs.id
-                                ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
-                                : 'border-slate-200 dark:border-slate-800'
-                            }`}
-                          >
-                            <span className="w-4 h-4 rounded shrink-0" style={{ backgroundColor: fs.previewColor }} />
-                            <span className="truncate">{fs.label}</span>
-                          </button>
-                        ))}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-slate-600 dark:text-slate-300">
+                            السيراميك والأرضية (3D)
+                          </span>
+                          {floorPlan.rooms.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateFloorPlan({
+                                  ...floorPlan,
+                                  rooms: floorPlan.rooms.map((r) => ({
+                                    ...r,
+                                    floorStyle: selectedRoom.floorStyle,
+                                  })),
+                                })
+                              }
+                              className="text-[11px] font-medium text-blue-600 dark:text-blue-400"
+                            >
+                              تطبيق على كل الغرف
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 dark:bg-slate-900 p-1 text-[11px]">
+                          {(
+                            [
+                              { id: 'all', label: 'الكل' },
+                              { id: 'algerian', label: 'جزائري' },
+                              { id: 'international', label: 'عالمي' },
+                            ] as const
+                          ).map((tab) => (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setFinishOriginFilter(tab.id)}
+                              className={`rounded-md py-1.5 font-medium ${
+                                finishOriginFilter === tab.id
+                                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                                  : 'text-slate-500 dark:text-slate-400'
+                              }`}
+                            >
+                              {tab.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {FLOOR_STYLES.filter(
+                            (fs) => finishOriginFilter === 'all' || fs.origin === finishOriginFilter
+                          ).map((fs) => (
+                            <button
+                              key={fs.id}
+                              type="button"
+                              onClick={() =>
+                                updateFloorPlan({
+                                  ...floorPlan,
+                                  rooms: floorPlan.rooms.map((r) =>
+                                    r.id === selectedRoom.id
+                                      ? { ...r, floorStyle: fs.id as RoomFloorStyle }
+                                      : r
+                                  ),
+                                })
+                              }
+                              className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-right ${
+                                selectedRoom.floorStyle === fs.id
+                                  ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
+                                  : 'border-slate-200 dark:border-slate-800'
+                              }`}
+                            >
+                              <span
+                                className="w-4 h-4 rounded border border-black/15 shrink-0"
+                                style={{ backgroundColor: fs.previewColor }}
+                              />
+                              <span className="truncate">{fs.label}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -2262,8 +2627,54 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {WALL_COLOR_SWATCHES.map((sw) => (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-slate-600 dark:text-slate-300">
+                          طلاء وصباغة الجدار
+                        </span>
+                        {floorPlan.walls.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateFloorPlan({
+                                ...floorPlan,
+                                walls: floorPlan.walls.map((w) => ({
+                                  ...w,
+                                  color: selectedWall.color,
+                                })),
+                              })
+                            }
+                            className="text-[11px] font-medium text-blue-600 dark:text-blue-400"
+                          >
+                            تطبيق على كل الجدران
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 dark:bg-slate-900 p-1 text-[11px]">
+                        {(
+                          [
+                            { id: 'all', label: 'الكل' },
+                            { id: 'algerian', label: 'جزائري' },
+                            { id: 'international', label: 'عالمي' },
+                          ] as const
+                        ).map((tab) => (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setFinishOriginFilter(tab.id)}
+                            className={`rounded-md py-1.5 font-medium ${
+                              finishOriginFilter === tab.id
+                                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+                                : 'text-slate-500 dark:text-slate-400'
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-5 gap-2">
+                        {WALL_COLOR_SWATCHES.filter(
+                          (sw) => finishOriginFilter === 'all' || sw.origin === finishOriginFilter
+                        ).map((sw) => (
                           <button
                             key={sw.color}
                             type="button"
@@ -2276,12 +2687,43 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                               })
                             }
                             className={`h-9 rounded-lg border ${
-                              selectedWall.color === sw.color ? 'border-blue-600 ring-2 ring-blue-500/30' : 'border-slate-300 dark:border-slate-700'
+                              selectedWall.color.toLowerCase() === sw.color.toLowerCase()
+                                ? 'border-blue-600 ring-2 ring-blue-500/30'
+                                : 'border-slate-300 dark:border-slate-700'
                             }`}
                             style={{ backgroundColor: sw.color }}
+                            title={sw.label}
                           />
                         ))}
                       </div>
+                      {(() => {
+                        const activeSwatch = WALL_COLOR_SWATCHES.find(
+                          (sw) => sw.color.toLowerCase() === selectedWall.color.toLowerCase()
+                        );
+                        return (
+                          <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 px-2.5 py-2">
+                            <span className="truncate font-medium">
+                              {activeSwatch ? activeSwatch.label : selectedWall.color.toUpperCase()}
+                            </span>
+                            <label className="inline-flex items-center gap-1.5 cursor-pointer shrink-0 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-[11px]">
+                              <input
+                                type="color"
+                                value={selectedWall.color || '#F5F2EB'}
+                                onChange={(e) =>
+                                  updateFloorPlan({
+                                    ...floorPlan,
+                                    walls: floorPlan.walls.map((w) =>
+                                      w.id === selectedWall.id ? { ...w, color: e.target.value } : w
+                                    ),
+                                  })
+                                }
+                                className="w-4 h-4 rounded border-0 p-0 bg-transparent"
+                              />
+                              <span>مخصص</span>
+                            </label>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 

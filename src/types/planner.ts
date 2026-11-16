@@ -7,16 +7,39 @@ export type RoomFloorStyle =
   | 'tile'
   | 'concrete'
   | 'terrazzo'
-  | 'carpet';
+  | 'carpet'
+  | 'zellige_casbah'
+  | 'zellige_tlemcen'
+  | 'bejaia_terracotta'
+  | 'sahara_sandstone'
+  | 'ceramic_marble_dz'
+  | 'ceramic_calacatta'
+  | 'ceramic_nero_marquina'
+  | 'ceramic_hex_nordic'
+  | 'ceramic_herringbone'
+  | 'ceramic_emerald_gloss'
+  | 'ceramic_travertine';
 
 export type WallFinishColor =
   | '#F5F2EB'
+  | '#FAF6EE'
+  | '#E6DFD3'
+  | '#1D4ED8'
+  | '#0F766E'
+  | '#B45309'
+  | '#9A3412'
+  | '#D97706'
+  | '#D1D9CE'
+  | '#FFFFFF'
   | '#EAE6DF'
-  | '#D6D3CD'
-  | '#CBD5E1'
-  | '#D1FAE5'
+  | '#E2E8F0'
+  | '#64748B'
   | '#1E293B'
-  | '#B45309';
+  | '#18181B'
+  | '#3F6212'
+  | '#9F1239'
+  | '#C7A98D'
+  | '#BAE6FD';
 
 export interface Room {
   id: string;
@@ -143,7 +166,15 @@ export type FurnitureType =
   | 'ablution_station'
   | 'turkish_hammam_bench'
   | 'outdoor_bbq_grill'
-  | 'courtyard_fountain';
+  | 'courtyard_fountain'
+  | 'algerian_salon_u'
+  | 'clic_clac_sofa'
+  | 'chaudiere_boiler'
+  | 'ac_armoire'
+  | 'laundry_sink_lavoir'
+  | 'storage_rack'
+  | 'wall_mirror_arch'
+  | 'garage_car';
 
 export interface FurnitureItem {
   id: string;
@@ -224,9 +255,18 @@ export interface UserStudioSettings {
 }
 
 export type ViewMode = '2d' | '3d' | 'split';
-export type EditorTool = 'select' | 'room' | 'wall' | 'door' | 'window';
+export type EditorTool = 'select' | 'room' | 'wall' | 'door' | 'window' | 'arch';
 export type CameraPreset = 'perspective' | 'isometric' | 'top' | 'walkthrough';
 export type LightingMood = 'daylight' | 'golden' | 'evening';
+
+export interface DrawingSpacePreset {
+  id: string;
+  label: string;
+  roomName: string;
+  defaultWidth: number;
+  defaultDepth: number;
+  floorStyle: RoomFloorStyle;
+}
 
 export type ProPlanType = 'monthly' | 'annual';
 export type PaymentMethod = 'baridimob' | 'flexy';

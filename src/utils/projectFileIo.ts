@@ -1,4 +1,4 @@
-import { computeFloorPlanMetrics } from '../data/catalog';
+import { FLOOR_STYLES, computeFloorPlanMetrics } from '../data/catalog';
 import { sanitizeId } from './authStore';
 import {
   FloorPlanData,
@@ -12,15 +12,7 @@ import {
   Wall,
 } from '../types/planner';
 
-const VALID_FLOOR_STYLES = new Set<RoomFloorStyle>([
-  'oak',
-  'walnut',
-  'marble',
-  'tile',
-  'concrete',
-  'terrazzo',
-  'carpet',
-]);
+const VALID_FLOOR_STYLES = new Set<RoomFloorStyle>(FLOOR_STYLES.map((f) => f.id));
 
 const VALID_CATEGORIES = new Set<FurnitureCategory>([
   'living',

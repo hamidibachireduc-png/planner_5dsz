@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Maximize2, Minus, Plus } from 'lucide-react';
 import { FLOOR_STYLES } from '../data/catalog';
 import {
+  DrawingSpacePreset,
   EditorTool,
   FloorPlanData,
   FurnitureItem,
@@ -16,6 +17,7 @@ import {
 interface Canvas2DProps {
   floorPlan: FloorPlanData;
   activeTool: EditorTool;
+  roomPreset?: DrawingSpacePreset;
   selection: SelectionTarget;
   snapEnabled: boolean;
   isDarkTheme: boolean;
@@ -71,6 +73,7 @@ type DragState =
 export const Canvas2D: React.FC<Canvas2DProps> = ({
   floorPlan,
   activeTool,
+  roomPreset,
   selection,
   snapEnabled,
   isDarkTheme,
@@ -274,6 +277,29 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         ctx.fillStyle = styleDef ? `${styleDef.previewColor}38` : 'rgba(197,155,109,0.22)';
         ctx.fillRect(rx, rz, rw, rd);
 
+        if (styleDef?.pattern === 'grid' || styleDef?.pattern === 'zellige' || styleDef?.pattern === 'hex') {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(rx, rz, rw, rd);
+          ctx.clip();
+          const tilePx = Math.max(12, view.scale * (styleDef.pattern === 'zellige' ? 0.45 : 0.6));
+          ctx.strokeStyle = isDarkTheme ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.07)';
+          ctx.lineWidth = 1;
+          for (let gx = rx + tilePx; gx < rx + rw; gx += tilePx) {
+            ctx.beginPath();
+            ctx.moveTo(gx, rz);
+            ctx.lineTo(gx, rz + rd);
+            ctx.stroke();
+          }
+          for (let gz = rz + tilePx; gz < rz + rd; gz += tilePx) {
+            ctx.beginPath();
+            ctx.moveTo(rx, gz);
+            ctx.lineTo(rx + rw, gz);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
         if (isSel) {
           ctx.strokeStyle = '#2563EB';
           ctx.lineWidth = 2;
@@ -376,9 +402,57 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
             item.type === 'sofa_2' ||
             item.type === 'armchair' ||
             item.type === 'outdoor_lounge' ||
-            item.type === 'algerian_sedari'
+            item.type === 'algerian_sedari' ||
+            item.type === 'clic_clac_sofa'
           ) {
             ctx.strokeRect(-fw / 2 + 2, -fd / 2 + 2, fw - 4, fd * 0.24);
+            if (item.type === 'clic_clac_sofa') {
+              ctx.beginPath();
+              ctx.moveTo(-fw / 2 + 2, fd * 0.08);
+              ctx.lineTo(fw / 2 - 2, fd * 0.08);
+              ctx.stroke();
+            }
+          } else if (item.type === 'algerian_salon_u') {
+            ctx.strokeRect(-fw / 2 + 2, -fd / 2 + 2, fw - 4, fd * 0.26);
+            ctx.strokeRect(-fw / 2 + 2, -fd / 2 + 2, fw * 0.24, fd - 4);
+            ctx.strokeRect(fw / 2 - fw * 0.24 - 2, -fd / 2 + 2, fw * 0.24, fd - 4);
+          } else if (item.type === 'garage_car') {
+            ctx.beginPath();
+            ctx.roundRect(-fw * 0.44, -fd * 0.46, fw * 0.88, fd * 0.92, 6);
+            ctx.stroke();
+            ctx.strokeRect(-fw * 0.34, -fd * 0.16, fw * 0.68, fd * 0.38);
+            ctx.beginPath();
+            ctx.moveTo(-fw * 0.34, -fd * 0.16);
+            ctx.lineTo(-fw * 0.42, -fd * 0.28);
+            ctx.moveTo(fw * 0.34, -fd * 0.16);
+            ctx.lineTo(fw * 0.42, -fd * 0.28);
+            ctx.stroke();
+          } else if (item.type === 'laundry_sink_lavoir') {
+            ctx.strokeRect(-fw * 0.38, -fd * 0.32, fw * 0.76, fd * 0.64);
+            ctx.beginPath();
+            ctx.arc(0, 0, Math.min(fw, fd) * 0.12, 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (item.type === 'storage_rack') {
+            ctx.beginPath();
+            ctx.moveTo(-fw / 2, -fd / 2);
+            ctx.lineTo(fw / 2, fd / 2);
+            ctx.moveTo(fw / 2, -fd / 2);
+            ctx.lineTo(-fw / 2, fd / 2);
+            ctx.stroke();
+          } else if (item.type === 'ac_armoire') {
+            ctx.strokeRect(-fw * 0.38, -fd * 0.32, fw * 0.76, fd * 0.42);
+            ctx.beginPath();
+            ctx.arc(0, fd * 0.2, Math.min(fw, fd) * 0.16, 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (item.type === 'chaudiere_boiler') {
+            ctx.beginPath();
+            ctx.arc(0, 0, Math.min(fw, fd) * 0.22, 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (item.type === 'wall_mirror_arch') {
+            ctx.beginPath();
+            ctx.moveTo(-fw * 0.3, fd * 0.2);
+            ctx.lineTo(fw * 0.2, -fd * 0.25);
+            ctx.stroke();
           } else if (
             item.type === 'bed_double' ||
             item.type === 'bed_single' ||
@@ -643,7 +717,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         ctx.font = '600 12px "IBM Plex Mono", monospace';
         ctx.textAlign = 'center';
         ctx.fillText(
-          `${formatLen(Math.abs(dr.curX - dr.startX), floorPlan.unit)} × ${formatLen(Math.abs(dr.curZ - dr.startZ), floorPlan.unit)}`,
+          `${roomPreset ? `${roomPreset.roomName} · ` : ''}${formatLen(Math.abs(dr.curX - dr.startX), floorPlan.unit)} × ${formatLen(Math.abs(dr.curZ - dr.startZ), floorPlan.unit)}`,
           x1 + rw / 2,
           y1 - 10
         );
@@ -688,6 +762,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
     hoverWorld,
     sketchUnderlay,
     underlayRevision,
+    roomPreset,
   ]);
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
@@ -778,7 +853,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
       return;
     }
 
-    if (activeTool === 'door' || activeTool === 'window') {
+    if (activeTool === 'door' || activeTool === 'window' || activeTool === 'arch') {
       // Find closest wall (wider tolerance on touchscreens)
       let best: { wall: Wall; dist: number; t: number } | null = null;
       const wallSnapRadius = isTouch ? 0.85 : 0.55;
@@ -796,9 +871,19 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
             wallId: best.wall.id,
             type: activeTool,
             offsetRatio: Math.max(0.15, Math.min(0.85, best.t)),
-            width: activeTool === 'door' ? 0.95 : 1.5,
-            height: activeTool === 'door' ? 2.1 : 1.4,
-            sillHeight: activeTool === 'door' ? 0 : 0.85,
+            width:
+              activeTool === 'door'
+                ? 0.95
+                : activeTool === 'arch'
+                  ? Math.min(1.6, Math.max(1.0, wallLen - 0.4))
+                  : 1.5,
+            height:
+              activeTool === 'door'
+                ? 2.1
+                : activeTool === 'arch'
+                  ? Math.min(2.45, Math.max(1.85, floorPlan.wallHeight - 0.25))
+                  : 1.4,
+            sillHeight: activeTool === 'window' ? 0.85 : 0,
             swing: 'in',
           };
           onChangeFloorPlan(
@@ -1112,14 +1197,23 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
       const rd = Math.abs(drag.curZ - drag.startZ);
       if (rw >= 1.5 && rd >= 1.5) {
         const roomId = `room_${Date.now()}`;
+        const baseName = roomPreset?.roomName || 'غرفة';
+        const sameCount = floorPlan.rooms.filter(
+          (r) => r.name === baseName || r.name.startsWith(`${baseName} `)
+        ).length;
+        const roomName = roomPreset?.roomName
+          ? sameCount === 0
+            ? baseName
+            : `${baseName} ${sameCount + 1}`
+          : `غرفة ${floorPlan.rooms.length + 1}`;
         const newRoom: Room = {
           id: roomId,
-          name: `غرفة ${floorPlan.rooms.length + 1}`,
+          name: roomName,
           x: minX,
           z: minZ,
           width: rw,
           depth: rd,
-          floorStyle: 'oak',
+          floorStyle: roomPreset?.floorStyle || 'oak',
         };
         const h = floorPlan.wallHeight;
         const ts = Date.now();
@@ -1207,13 +1301,17 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
       {/* Tool instructional toast at top-center */}
       {activeTool !== 'select' && (
         <div className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 max-w-[92vw] text-center rounded-lg border border-blue-200 dark:border-blue-800 bg-white/95 dark:bg-slate-900/95 px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-medium text-blue-700 dark:text-blue-300 shadow-sm">
-          {activeTool === 'room' && 'اسحب على المخطط لرسم غرفة جديدة بجدرانها الأربعة'}
+          {activeTool === 'room' &&
+            (roomPreset
+              ? `اسحب على المخطط لرسم «${roomPreset.label}» بجدرانها الأربعة`
+              : 'اسحب على المخطط لرسم غرفة جديدة بجدرانها الأربعة')}
           {activeTool === 'wall' &&
             (wallDraftStart
               ? 'انقر لتحديد نقطة نهاية الجدار'
               : 'انقر على المخطط لتحديد نقطة بداية الجدار')}
           {activeTool === 'door' && 'انقر على أي جدار لإضافة باب في الموضع المحدد'}
           {activeTool === 'window' && 'انقر على أي جدار لإضافة نافذة زجاجية'}
+          {activeTool === 'arch' && 'انقر على أي جدار لفتح قوس معماري (بين الصالة والهول)'}
         </div>
       )}
 

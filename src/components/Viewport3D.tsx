@@ -236,6 +236,45 @@ function buildWallWithOpenings(
       );
       glassPane.position.set(opCenterX, winMidY, 0);
       group.add(glassPane);
+    } else if (op.type === 'arch' && opTop > 0.3) {
+      const archH = opTop;
+      const pilasterGeo = new THREE.BoxGeometry(0.06, archH, thick + 0.03);
+      const leftPilaster = new THREE.Mesh(pilasterGeo, trimMat);
+      leftPilaster.position.set(start + 0.03, archH / 2, 0);
+      leftPilaster.castShadow = true;
+      group.add(leftPilaster);
+
+      const rightPilaster = new THREE.Mesh(pilasterGeo, trimMat);
+      rightPilaster.position.set(end - 0.03, archH / 2, 0);
+      rightPilaster.castShadow = true;
+      group.add(rightPilaster);
+
+      const archRadius = Math.min(opW / 2 - 0.03, 0.55);
+      const springY = archH - archRadius;
+      const segments = 10;
+      for (let s = 0; s < segments; s++) {
+        const theta1 = (Math.PI * s) / segments;
+        const theta2 = (Math.PI * (s + 1)) / segments;
+        const midTheta = (theta1 + theta2) / 2;
+        const segLen = Math.max(0.06, (Math.PI * archRadius) / segments + 0.02);
+        const ax = opCenterX + Math.cos(midTheta) * archRadius;
+        const ay = springY + Math.sin(midTheta) * archRadius;
+        const archSeg = new THREE.Mesh(
+          new THREE.BoxGeometry(segLen, 0.055, thick + 0.035),
+          trimMat
+        );
+        archSeg.position.set(ax, ay, 0);
+        archSeg.rotation.z = midTheta - Math.PI / 2;
+        archSeg.castShadow = true;
+        group.add(archSeg);
+      }
+
+      const capBeam = new THREE.Mesh(
+        new THREE.BoxGeometry(opW + 0.04, 0.045, thick + 0.04),
+        trimMat
+      );
+      capBeam.position.set(opCenterX, archH - 0.022, 0);
+      group.add(capBeam);
     }
 
     cursor = end;
@@ -695,11 +734,25 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       const slabGeo = new THREE.BoxGeometry(room.width, 0.06, room.depth);
       const tex = getFloorTexture(room.floorStyle, room.width, room.depth, maxAniso);
       const isSelected = selection?.kind === 'room' && selection.id === room.id;
+      const isGlossyCeramic =
+        room.floorStyle === 'marble' ||
+        room.floorStyle === 'ceramic_calacatta' ||
+        room.floorStyle === 'ceramic_nero_marquina' ||
+        room.floorStyle === 'ceramic_marble_dz' ||
+        room.floorStyle === 'ceramic_emerald_gloss' ||
+        room.floorStyle === 'zellige_casbah' ||
+        room.floorStyle === 'zellige_tlemcen';
+      const isSatinCeramic =
+        room.floorStyle === 'tile' ||
+        room.floorStyle === 'ceramic_hex_nordic' ||
+        room.floorStyle === 'ceramic_herringbone' ||
+        room.floorStyle === 'ceramic_travertine' ||
+        room.floorStyle === 'terrazzo';
       const slabMat = new THREE.MeshStandardMaterial({
         map: tex,
         color: isSelected ? new THREE.Color('#DBEAFE') : new THREE.Color('#FFFFFF'),
-        roughness: room.floorStyle === 'marble' ? 0.28 : 0.68,
-        metalness: 0.04,
+        roughness: isGlossyCeramic ? 0.22 : isSatinCeramic ? 0.42 : 0.74,
+        metalness: isGlossyCeramic ? 0.08 : 0.03,
       });
       const slab = new THREE.Mesh(slabGeo, slabMat);
       slab.position.set(room.x + room.width / 2, -0.03, room.z + room.depth / 2);

@@ -1,5 +1,6 @@
 import {
   CatalogItemDef,
+  DrawingSpacePreset,
   FloorPlanData,
   FurnitureCategory,
   FurnitureType,
@@ -12,13 +13,25 @@ export type { CatalogItemDef };
 
 export const FURNITURE_CATEGORIES: { id: FurnitureCategory | 'all'; label: string }[] = [
   { id: 'all', label: 'الكل' },
-  { id: 'living', label: 'المعيشة' },
-  { id: 'bedroom', label: 'النوم' },
-  { id: 'kitchen', label: 'المطبخ' },
-  { id: 'appliances', label: 'الأجهزة المنزلية' },
-  { id: 'dining', label: 'الطعام والمكتب' },
-  { id: 'bathroom', label: 'الحمام' },
-  { id: 'decor', label: 'الديكور والإضاءة' },
+  { id: 'living', label: 'الصالة والمعيشة' },
+  { id: 'bedroom', label: 'غرف النوم' },
+  { id: 'kitchen', label: 'المطبخ (كوزينة)' },
+  { id: 'appliances', label: 'الكهرومنزلية' },
+  { id: 'dining', label: 'طابلة ومكتب' },
+  { id: 'bathroom', label: 'الحمام والدوش' },
+  { id: 'decor', label: 'الديكور والكراج' },
+];
+
+export const DRAWING_SPACE_PRESETS: DrawingSpacePreset[] = [
+  { id: 'salon', label: 'صالة / صالون', roomName: 'صالون الضيوف', defaultWidth: 5, defaultDepth: 4, floorStyle: 'ceramic_calacatta' },
+  { id: 'hall', label: 'هول / مدخل', roomName: 'هول التوزيع', defaultWidth: 4, defaultDepth: 3.5, floorStyle: 'zellige_casbah' },
+  { id: 'kitchen', label: 'مطبخ (كوزينة)', roomName: 'المطبخ', defaultWidth: 4, defaultDepth: 3.5, floorStyle: 'ceramic_marble_dz' },
+  { id: 'bedroom', label: 'غرفة نوم (شومبرا)', roomName: 'غرفة النوم', defaultWidth: 4, defaultDepth: 3.5, floorStyle: 'oak' },
+  { id: 'bathroom', label: 'حمام / دوش', roomName: 'الحمام و WC', defaultWidth: 2.6, defaultDepth: 2.2, floorStyle: 'ceramic_hex_nordic' },
+  { id: 'garage', label: 'كراج (مرآب)', roomName: 'المرآب (الكراج)', defaultWidth: 5.5, defaultDepth: 3.5, floorStyle: 'sahara_sandstone' },
+  { id: 'balcony', label: 'شرفة / بالكون', roomName: 'الشرفة (بالكون)', defaultWidth: 4, defaultDepth: 1.8, floorStyle: 'bejaia_terracotta' },
+  { id: 'courtyard', label: 'وسط الدار / حوش', roomName: 'وسط الدار / فناء', defaultWidth: 5, defaultDepth: 4.5, floorStyle: 'zellige_tlemcen' },
+  { id: 'office', label: 'غرفة ضياف / مكتب', roomName: 'غرفة الضياف', defaultWidth: 3.5, defaultDepth: 3, floorStyle: 'ceramic_herringbone' },
 ];
 
 const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
@@ -55,7 +68,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'armchair',
-    name: 'كرسي استرخاء',
+    name: 'فوتوي صالون مريح (Fauteuil)',
     category: 'living',
     width: 0.85,
     depth: 0.85,
@@ -65,7 +78,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'ottoman',
-    name: 'بوف دائري ومسند قدم',
+    name: 'بوف دائري مبطن (Pouf)',
     category: 'living',
     width: 0.65,
     depth: 0.65,
@@ -75,7 +88,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'coffee_table',
-    name: 'طاولة قهوة ترافرتين',
+    name: 'طابلة وسط صالون ترافرتين',
     category: 'living',
     width: 1.3,
     depth: 0.75,
@@ -85,7 +98,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'console_table',
-    name: 'كونسول مدخل مع مرآة',
+    name: 'كونسول هول بمرآة',
     category: 'living',
     width: 1.35,
     depth: 0.4,
@@ -95,7 +108,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'tv_stand',
-    name: 'مكتبة تلفاز وشاشة',
+    name: 'موبل تيفي وديكور الصالة',
     category: 'living',
     width: 1.8,
     depth: 0.45,
@@ -105,7 +118,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'rug',
-    name: 'سجادة أرضية منسوجة',
+    name: 'زربية صالون منسوجة',
     category: 'living',
     width: 2.6,
     depth: 1.8,
@@ -155,7 +168,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'shoe_cabinet',
-    name: 'خزانة أحذية للمدخل مع مرآة',
+    name: 'بورت شوسير للهول بمرآة',
     category: 'living',
     width: 1.1,
     depth: 0.38,
@@ -165,7 +178,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'algerian_sedari',
-    name: 'سدّاري جزائري للضيافة والمجالس',
+    name: 'سدّاري جزائري للضياف والمجالس',
     category: 'living',
     width: 2.6,
     depth: 0.85,
@@ -174,8 +187,28 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
     defaultAccent: '#D4AF37',
   },
   {
+    type: 'algerian_salon_u',
+    name: 'صالة سداري U-Shape كامل للضيافة',
+    category: 'living',
+    width: 3.4,
+    depth: 2.3,
+    height: 0.8,
+    defaultPrimary: '#6B1D2F',
+    defaultAccent: '#D4AF37',
+  },
+  {
+    type: 'clic_clac_sofa',
+    name: 'كنبة سرير كليك كلاك (Clic-Clac)',
+    category: 'living',
+    width: 2.05,
+    depth: 1.05,
+    height: 0.82,
+    defaultPrimary: '#475569',
+    defaultAccent: '#CBD5E1',
+  },
+  {
     type: 'brass_tea_table',
-    name: 'مايدة شاي نحاسية مزخرفة',
+    name: 'مايدة شاي وصينية نحاسية جزائرية',
     category: 'living',
     width: 0.85,
     depth: 0.85,
@@ -185,7 +218,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'privacy_partition',
-    name: 'حاجز خصوصية للمدخل والصالون',
+    name: 'حاجز خصوصية للهول والصالة',
     category: 'living',
     width: 1.8,
     depth: 0.14,
@@ -195,7 +228,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'hallway_coat_bench',
-    name: 'ركن استقبال وخلع الأحذية بالمدخل',
+    name: 'ركن استقبال وبورت مونتو للهول',
     category: 'living',
     width: 1.3,
     depth: 0.44,
@@ -227,7 +260,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'nightstand',
-    name: 'طاولة سرير جانبية',
+    name: 'طابلة دو نوي (كومودينو)',
     category: 'bedroom',
     width: 0.55,
     depth: 0.45,
@@ -237,7 +270,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'dresser',
-    name: 'تسريحة غرفة نوم مع مرآة',
+    name: 'كوافوز غرفة النوم مع مرآة',
     category: 'bedroom',
     width: 1.3,
     depth: 0.48,
@@ -247,7 +280,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'crib',
-    name: 'سرير أطفال خشبي',
+    name: 'سرير بيبي وأطفال خشبي',
     category: 'bedroom',
     width: 1.35,
     depth: 0.78,
@@ -257,7 +290,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'wardrobe',
-    name: 'خزانة ملابس مزدوجة',
+    name: 'مارييو / بلاكار ملابس واسع',
     category: 'bedroom',
     width: 1.6,
     depth: 0.62,
@@ -307,7 +340,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'underbed_storage_bed',
-    name: 'سرير عائلي بصندوق تخزين الأغطية',
+    name: 'سرير كوفر بصندوق تخزين',
     category: 'bedroom',
     width: 1.7,
     depth: 2.05,
@@ -317,7 +350,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'sliding_wardrobe_mirror',
-    name: 'خزانة ملابس منزلقة بمرآة كاملة',
+    name: 'بلاكار كوليسون بمرآة كاملة',
     category: 'bedroom',
     width: 2.0,
     depth: 0.65,
@@ -329,7 +362,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   // ── Kitchen ──
   {
     type: 'kitchen_counter',
-    name: 'خزانة مطبخ مع حوض',
+    name: 'موبيليي كوزينة إكويبي مع لافابو',
     category: 'kitchen',
     width: 2.2,
     depth: 0.65,
@@ -339,7 +372,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'kitchen_island',
-    name: 'جزيرة مطبخ رخامية',
+    name: 'إيلو كوزينة رخامي (جزيرة مطبخ)',
     category: 'kitchen',
     width: 2.1,
     depth: 0.95,
@@ -349,7 +382,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'fridge',
-    name: 'ثلاجة ستانلس ستيل',
+    name: 'فريجيدير إينوكس (ثلاجة)',
     category: 'kitchen',
     width: 0.9,
     depth: 0.72,
@@ -359,7 +392,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'stove',
-    name: 'موقد وفرن مدمج',
+    name: 'بلاك دو كويسون وفرن كاستري',
     category: 'kitchen',
     width: 0.8,
     depth: 0.65,
@@ -369,7 +402,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'dishwasher',
-    name: 'غسالة أطباق أوتوماتيكية',
+    name: 'لاف فيسيل (غسالة أواني)',
     category: 'kitchen',
     width: 0.62,
     depth: 0.62,
@@ -379,7 +412,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'microwave_oven',
-    name: 'برج فرن وميكروويف مدمج',
+    name: 'كولون فرن وميكرو أوند كاستري',
     category: 'kitchen',
     width: 0.65,
     depth: 0.6,
@@ -389,7 +422,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'range_hood',
-    name: 'شفاط مطبخ ستانلس معلق',
+    name: 'لا هوت كوزينة إينوكس (شفاط)',
     category: 'kitchen',
     width: 0.9,
     depth: 0.5,
@@ -399,7 +432,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'coffee_machine',
-    name: 'ركن قهوة وماكينة إسبريسو',
+    name: 'ركن قهوة وماشينة بريس إسبريسو',
     category: 'kitchen',
     width: 0.9,
     depth: 0.55,
@@ -449,7 +482,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'freezer_chest',
-    name: 'مجمد أفقي عائلي عميق (Congélateur)',
+    name: 'كونجيلاتور أفقي عائلي (Congélateur)',
     category: 'kitchen',
     width: 1.25,
     depth: 0.68,
@@ -459,7 +492,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'gas_oven_5burner',
-    name: 'طباخة غاز عائلية 5 شعلات',
+    name: 'كويزينيير 5 شعلات عائلية (Cuisinière)',
     category: 'kitchen',
     width: 0.9,
     depth: 0.65,
@@ -467,11 +500,21 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
     defaultPrimary: '#CBD5E1',
     defaultAccent: '#1E293B',
   },
+  {
+    type: 'storage_rack',
+    name: 'إيطاجير تخزين للمؤونة والكوزينة/الكراج',
+    category: 'kitchen',
+    width: 1.2,
+    depth: 0.45,
+    height: 1.9,
+    defaultPrimary: '#475569',
+    defaultAccent: '#C59B6D',
+  },
 
-  // ── Home Appliances & Smart Devices ──
+  // ── Home Appliances & Smart Devices (الكهرومنزلية باللهجة الجزائرية) ──
   {
     type: 'washer',
-    name: 'غسالة ملابس أمامية',
+    name: 'ماشينا لافي أوتوماتيك (غسالة ملابس)',
     category: 'appliances',
     width: 0.62,
     depth: 0.62,
@@ -481,7 +524,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'dryer',
-    name: 'مجفف ملابس حراري',
+    name: 'سيش لانج حراري (نشافة ملابس)',
     category: 'appliances',
     width: 0.62,
     depth: 0.62,
@@ -491,7 +534,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'ac_split',
-    name: 'مكيف هواء سبليت جداري',
+    name: 'كليماتيزور سبليت جداري (مكيف)',
     category: 'appliances',
     width: 1.05,
     depth: 0.28,
@@ -500,8 +543,18 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
     defaultAccent: '#64748B',
   },
   {
+    type: 'ac_armoire',
+    name: 'كليماتيزور أرموار عمودي للصالة',
+    category: 'appliances',
+    width: 0.56,
+    depth: 0.4,
+    height: 1.85,
+    defaultPrimary: '#F8FAFC',
+    defaultAccent: '#1E293B',
+  },
+  {
     type: 'water_heater',
-    name: 'سخان ماء كهربائي جداري',
+    name: 'شوفو / شوف بان جداري (سخان ماء)',
     category: 'appliances',
     width: 0.48,
     depth: 0.48,
@@ -510,8 +563,18 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
     defaultAccent: '#2563EB',
   },
   {
+    type: 'chaudiere_boiler',
+    name: 'شوديير تدفئة مركزية جدارية (Chaudière)',
+    category: 'appliances',
+    width: 0.52,
+    depth: 0.36,
+    height: 0.84,
+    defaultPrimary: '#F8FAFC',
+    defaultAccent: '#0F172A',
+  },
+  {
     type: 'smart_tv_wall',
-    name: 'شاشة ذكية 65 بوصة معلقة',
+    name: 'تلفاز بلازما / سمارت 65 بوصة',
     category: 'appliances',
     width: 1.5,
     depth: 0.14,
@@ -521,7 +584,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'vacuum_robot',
-    name: 'روبوت تنظيف ذكي مع قاعدة',
+    name: 'أسبيراتور روبو ذكي مع قاعدة',
     category: 'appliances',
     width: 0.42,
     depth: 0.48,
@@ -531,7 +594,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'air_purifier',
-    name: 'جهاز تنقية هواء ذكي',
+    name: 'جهاز تنقية وتعقيم هواء ذكي',
     category: 'appliances',
     width: 0.38,
     depth: 0.38,
@@ -541,7 +604,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'gas_heater_algerian',
-    name: 'مدفأة غاز منزلية آمنة',
+    name: 'شوفاج غاز جزائري آمن (مدفأة)',
     category: 'appliances',
     width: 0.78,
     depth: 0.28,
@@ -551,7 +614,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'water_tank_pump',
-    name: 'خزان ماء احتياطي مع مضخة ضغط',
+    name: 'سيتيرنة ماء وموتور ضغط (مضخة)',
     category: 'appliances',
     width: 1.05,
     depth: 1.05,
@@ -655,7 +718,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'vanity',
-    name: 'مغسلة حمام مع مرآة',
+    name: 'موبيليي لافابو الحمام مع مرآة',
     category: 'bathroom',
     width: 1.0,
     depth: 0.52,
@@ -665,7 +728,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'toilet',
-    name: 'مرحاض سيراميك',
+    name: 'تواليت / مرحاض سيراميك',
     category: 'bathroom',
     width: 0.45,
     depth: 0.68,
@@ -685,7 +748,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'shower_cabin',
-    name: 'مقصورة دش زجاجية',
+    name: 'كابينة دوش زجاج مقسى',
     category: 'bathroom',
     width: 1.0,
     depth: 1.0,
@@ -695,7 +758,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'towel_warmer',
-    name: 'سخان ومجفف مناشف جداري',
+    name: 'سيش سيرفيات (مجفف مناشف)',
     category: 'bathroom',
     width: 0.6,
     depth: 0.14,
@@ -705,7 +768,7 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'double_vanity',
-    name: 'مغسلة حمام مزدوجة رخامية',
+    name: 'لافابو حمام مزدوج رخامي',
     category: 'bathroom',
     width: 1.6,
     depth: 0.54,
@@ -715,13 +778,23 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'laundry_hamper',
-    name: 'خزانة وسلة غسيل مدمجة',
+    name: 'بلكار غسيل ومنظفات للحمام',
     category: 'bathroom',
     width: 0.85,
     depth: 0.45,
     height: 0.9,
     defaultPrimary: '#EAE6DF',
     defaultAccent: '#B08968',
+  },
+  {
+    type: 'laundry_sink_lavoir',
+    name: 'لافوار غسيل للبالكون والغسيل (Lavoir)',
+    category: 'bathroom',
+    width: 0.85,
+    depth: 0.6,
+    height: 0.85,
+    defaultPrimary: '#F8FAFC',
+    defaultAccent: '#64748B',
   },
   {
     type: 'ablution_station',
@@ -847,13 +920,33 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
   },
   {
     type: 'courtyard_fountain',
-    name: 'نافورة فناء وزليج جزائري تقليدي',
+    name: 'نافورة وسط الدار وزليج جزائري',
     category: 'decor',
     width: 1.3,
     depth: 1.3,
     height: 0.95,
     defaultPrimary: '#1E3A8A',
     defaultAccent: '#D4AF37',
+  },
+  {
+    type: 'wall_mirror_arch',
+    name: 'مرآة مقوسة فاخرة للهول والمدخل',
+    category: 'decor',
+    width: 0.95,
+    depth: 0.1,
+    height: 1.85,
+    defaultPrimary: '#D4AF37',
+    defaultAccent: '#DBEAFE',
+  },
+  {
+    type: 'garage_car',
+    name: 'سيارة لقياس مساحة الكراج (المرآب)',
+    category: 'decor',
+    width: 1.85,
+    depth: 4.35,
+    height: 1.48,
+    defaultPrimary: '#334155',
+    defaultAccent: '#CBD5E1',
   },
 ];
 
@@ -873,6 +966,8 @@ const BASE_REFERENCE_PRICES_DZD: Partial<Record<FurnitureType, number>> = {
   bean_bag: 12000,
   shoe_cabinet: 34000,
   algerian_sedari: 135000,
+  algerian_salon_u: 245000,
+  clic_clac_sofa: 72000,
   brass_tea_table: 28000,
   privacy_partition: 36000,
   hallway_coat_bench: 44000,
@@ -902,10 +997,13 @@ const BASE_REFERENCE_PRICES_DZD: Partial<Record<FurnitureType, number>> = {
   couscous_prep_counter: 52000,
   freezer_chest: 74000,
   gas_oven_5burner: 78000,
+  storage_rack: 26000,
   washer: 79000,
   dryer: 88000,
   ac_split: 76000,
+  ac_armoire: 195000,
   water_heater: 36000,
+  chaudiere_boiler: 145000,
   smart_tv_wall: 112000,
   vacuum_robot: 54000,
   air_purifier: 35000,
@@ -927,6 +1025,7 @@ const BASE_REFERENCE_PRICES_DZD: Partial<Record<FurnitureType, number>> = {
   towel_warmer: 24000,
   double_vanity: 92000,
   laundry_hamper: 28000,
+  laundry_sink_lavoir: 22000,
   ablution_station: 34000,
   turkish_hammam_bench: 84000,
   plant_olive: 16000,
@@ -940,6 +1039,8 @@ const BASE_REFERENCE_PRICES_DZD: Partial<Record<FurnitureType, number>> = {
   islamic_screen: 42000,
   outdoor_bbq_grill: 64000,
   courtyard_fountain: 115000,
+  wall_mirror_arch: 34000,
+  garage_car: 0,
 };
 
 export const FURNITURE_CATALOG: CatalogItemDef[] = [
@@ -952,36 +1053,196 @@ export const FURNITURE_CATALOG: CatalogItemDef[] = [
   ...LUXURY_ALGERIAN_CATALOG_ITEMS,
 ];
 
-export const FLOOR_STYLES: { id: RoomFloorStyle; label: string; previewColor: string }[] = [
-  { id: 'oak', label: 'باركيه بلوط دافئ', previewColor: '#C59B6D' },
-  { id: 'walnut', label: 'خشب جوز داكن', previewColor: '#6E4B32' },
-  { id: 'marble', label: 'رخام كرارا أبيض', previewColor: '#EAE8E4' },
-  { id: 'tile', label: 'بلاط سيراميك هندسي', previewColor: '#CBD5E1' },
-  { id: 'concrete', label: 'خرسانة مصقولة', previewColor: '#94A3B8' },
-  { id: 'terrazzo', label: 'تيرازو إيطالي', previewColor: '#DDD6CE' },
-  { id: 'carpet', label: 'سجاد منسوج ناعم', previewColor: '#D6CFC4' },
+export type StyleOrigin = 'algerian' | 'international';
+
+export interface FloorStyleDef {
+  id: RoomFloorStyle;
+  label: string;
+  previewColor: string;
+  origin: StyleOrigin;
+  pattern?: 'grid' | 'zellige' | 'hex' | 'herringbone' | 'plank' | 'marble' | 'matte';
+}
+
+export const FLOOR_STYLES: FloorStyleDef[] = [
+  // ── النمط الجزائري (Algerian Ceramics, Zellige & Stone) ──
+  {
+    id: 'zellige_casbah',
+    label: 'زليج القصبة الجزائري (أزرق وأبيض)',
+    previewColor: '#2563EB',
+    origin: 'algerian',
+    pattern: 'zellige',
+  },
+  {
+    id: 'zellige_tlemcen',
+    label: 'زليج تلمسان الأندلسي (زمردي وذهبي)',
+    previewColor: '#047857',
+    origin: 'algerian',
+    pattern: 'zellige',
+  },
+  {
+    id: 'ceramic_marble_dz',
+    label: 'سيراميك جزائري لامع عرق ذهبي',
+    previewColor: '#F3EDE2',
+    origin: 'algerian',
+    pattern: 'marble',
+  },
+  {
+    id: 'bejaia_terracotta',
+    label: 'سيراميك طيني قبائلي (بجاية دافئ)',
+    previewColor: '#C26A4A',
+    origin: 'algerian',
+    pattern: 'grid',
+  },
+  {
+    id: 'sahara_sandstone',
+    label: 'بلاط حجري صحراوي (غرداية/تيميمون)',
+    previewColor: '#D8B98A',
+    origin: 'algerian',
+    pattern: 'grid',
+  },
+
+  // ── النمط العالمي (International Ceramics & Flooring) ──
+  {
+    id: 'ceramic_calacatta',
+    label: 'سيراميك كالاكاتا جولد إيطالي',
+    previewColor: '#F7F5F0',
+    origin: 'international',
+    pattern: 'marble',
+  },
+  {
+    id: 'ceramic_nero_marquina',
+    label: 'سيراميك نيرو ماركينا أسود رخامي',
+    previewColor: '#1E2024',
+    origin: 'international',
+    pattern: 'marble',
+  },
+  {
+    id: 'ceramic_hex_nordic',
+    label: 'سيراميك سداسي إسكندنافي',
+    previewColor: '#E5E7EB',
+    origin: 'international',
+    pattern: 'hex',
+  },
+  {
+    id: 'ceramic_herringbone',
+    label: 'سيراميك باركيه متعرج أوروبي',
+    previewColor: '#B8926A',
+    origin: 'international',
+    pattern: 'herringbone',
+  },
+  {
+    id: 'ceramic_emerald_gloss',
+    label: 'سيراميك زجاجي أخضر زمردي',
+    previewColor: '#0F766E',
+    origin: 'international',
+    pattern: 'grid',
+  },
+  {
+    id: 'ceramic_travertine',
+    label: 'سيراميك ترافرتين روماني بيج',
+    previewColor: '#DFD2BE',
+    origin: 'international',
+    pattern: 'grid',
+  },
+  {
+    id: 'tile',
+    label: 'بلاط سيراميك هندسي كلاسيكي',
+    previewColor: '#CBD5E1',
+    origin: 'international',
+    pattern: 'grid',
+  },
+  {
+    id: 'marble',
+    label: 'رخام كرارا أبيض مصقول',
+    previewColor: '#EAE8E4',
+    origin: 'international',
+    pattern: 'marble',
+  },
+  {
+    id: 'terrazzo',
+    label: 'تيرازو فينيسي ملون',
+    previewColor: '#DDD6CE',
+    origin: 'international',
+    pattern: 'matte',
+  },
+  {
+    id: 'oak',
+    label: 'باركيه بلوط دافئ',
+    previewColor: '#C59B6D',
+    origin: 'international',
+    pattern: 'plank',
+  },
+  {
+    id: 'walnut',
+    label: 'خشب جوز داكن فاخر',
+    previewColor: '#6E4B32',
+    origin: 'international',
+    pattern: 'plank',
+  },
+  {
+    id: 'concrete',
+    label: 'خرسانة معمارية مصقولة',
+    previewColor: '#94A3B8',
+    origin: 'international',
+    pattern: 'matte',
+  },
+  {
+    id: 'carpet',
+    label: 'سجاد منسوج ناعم',
+    previewColor: '#D6CFC4',
+    origin: 'international',
+    pattern: 'matte',
+  },
 ];
 
-export const WALL_COLOR_SWATCHES: { color: string; label: string }[] = [
-  { color: '#F5F2EB', label: 'أبيض معماري دافئ' },
-  { color: '#EAE6DF', label: 'رملي ناعم' },
-  { color: '#E2E8F0', label: 'رمادي جليدي' },
-  { color: '#D1D9CE', label: 'أخضر مريمية' },
-  { color: '#1E293B', label: 'كحلي داكن' },
-  { color: '#78350F', label: 'طيني دافئ' },
+export interface WallColorSwatchDef {
+  color: string;
+  label: string;
+  origin: StyleOrigin;
+  finish?: string;
+}
+
+export const WALL_COLOR_SWATCHES: WallColorSwatchDef[] = [
+  // ── صباغات النمط الجزائري ──
+  { color: '#F5F2EB', label: 'أبيض القصبة الجيري', origin: 'algerian', finish: 'مات معماري' },
+  { color: '#FAF6EE', label: 'عاجي تلمساني دافئ', origin: 'algerian', finish: 'ساتان ناعم' },
+  { color: '#E6DFD3', label: 'رملي الهقار وبوسعادة', origin: 'algerian', finish: 'ترابي ناعم' },
+  { color: '#1D4ED8', label: 'أزرق القصبة المتوسطي', origin: 'algerian', finish: 'تراثي نيلي' },
+  { color: '#0F766E', label: 'أخضر تلمسان الزمردي', origin: 'algerian', finish: 'تادلاكت لامع' },
+  { color: '#B45309', label: 'مغري تيميمون الصحراوي', origin: 'algerian', finish: 'طيني طبيعي' },
+  { color: '#9A3412', label: 'طوبي القصور التراثي', origin: 'algerian', finish: 'تادلاكت دافئ' },
+  { color: '#D97706', label: 'ذهبي قسنطيني دافئ', origin: 'algerian', finish: 'لمسة شرقية' },
+  { color: '#D1D9CE', label: 'أخضر زيتوني قبائلي', origin: 'algerian', finish: 'مات هادئ' },
+
+  // ── صباغات النمط العالمي ──
+  { color: '#FFFFFF', label: 'أبيض ثلجي سكندنافي', origin: 'international', finish: 'نقي مودرن' },
+  { color: '#EAE6DF', label: 'جريج باريسي (Greige)', origin: 'international', finish: 'ساتان فاخر' },
+  { color: '#E2E8F0', label: 'رمادي جليدي نورديك', origin: 'international', finish: 'مات ناعم' },
+  { color: '#64748B', label: 'رمادي لوفت إسمنتي', origin: 'international', finish: 'صناعي حديث' },
+  { color: '#1E293B', label: 'كحلي ليلي معماري', origin: 'international', finish: 'مخملي عميق' },
+  { color: '#18181B', label: 'فحمي مات فاخر', origin: 'international', finish: 'عصري جريء' },
+  { color: '#3F6212', label: 'أخضر غابات عميق', origin: 'international', finish: 'بيوفيلك' },
+  { color: '#9F1239', label: 'عنابي مخملي أوروبي', origin: 'international', finish: 'كلاسيك حديث' },
+  { color: '#C7A98D', label: 'كشمير لاتيه دافئ', origin: 'international', finish: 'ساتان دافئ' },
+  { color: '#BAE6FD', label: 'أزرق سماوي ساحلي', origin: 'international', finish: 'مضيء منعش' },
 ];
 
 export const MATERIAL_SWATCHES: string[] = [
   '#D6CFC2',
+  '#FAF6EE',
   '#475569',
   '#5B7065',
+  '#0F766E',
   '#8C6239',
   '#A47548',
   '#1E293B',
+  '#1D4ED8',
   '#B8734B',
+  '#D97706',
   '#F8FAFC',
   '#DFD5C5',
   '#9A3412',
+  '#3F6212',
 ];
 
 export interface StarterTemplate {

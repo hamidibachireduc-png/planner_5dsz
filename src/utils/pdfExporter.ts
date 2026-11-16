@@ -200,9 +200,51 @@ function drawFurnitureBlueprintSymbol(
       item.type === 'sofa_2' ||
       item.type === 'armchair' ||
       item.type === 'outdoor_lounge' ||
-      item.type === 'algerian_sedari'
+      item.type === 'algerian_sedari' ||
+      item.type === 'clic_clac_sofa'
     ) {
       ctx.strokeRect(-fw / 2 + 2, -fd / 2 + 2, Math.max(2, fw - 4), fd * 0.24);
+      if (item.type === 'clic_clac_sofa') {
+        ctx.beginPath();
+        ctx.moveTo(-fw / 2 + 2, fd * 0.08);
+        ctx.lineTo(fw / 2 - 2, fd * 0.08);
+        ctx.stroke();
+      }
+    } else if (item.type === 'algerian_salon_u') {
+      ctx.strokeRect(-fw / 2 + 2, -fd / 2 + 2, Math.max(2, fw - 4), fd * 0.26);
+      ctx.strokeRect(-fw / 2 + 2, -fd / 2 + 2, fw * 0.24, Math.max(2, fd - 4));
+      ctx.strokeRect(fw / 2 - fw * 0.24 - 2, -fd / 2 + 2, fw * 0.24, Math.max(2, fd - 4));
+    } else if (item.type === 'garage_car') {
+      ctx.beginPath();
+      ctx.roundRect(-fw * 0.44, -fd * 0.46, fw * 0.88, fd * 0.92, 5);
+      ctx.stroke();
+      ctx.strokeRect(-fw * 0.34, -fd * 0.16, fw * 0.68, fd * 0.38);
+    } else if (item.type === 'laundry_sink_lavoir') {
+      ctx.strokeRect(-fw * 0.38, -fd * 0.32, fw * 0.76, fd * 0.64);
+      ctx.beginPath();
+      ctx.arc(0, 0, Math.min(fw, fd) * 0.12, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (item.type === 'storage_rack') {
+      ctx.beginPath();
+      ctx.moveTo(-fw / 2, -fd / 2);
+      ctx.lineTo(fw / 2, fd / 2);
+      ctx.moveTo(fw / 2, -fd / 2);
+      ctx.lineTo(-fw / 2, fd / 2);
+      ctx.stroke();
+    } else if (item.type === 'ac_armoire') {
+      ctx.strokeRect(-fw * 0.38, -fd * 0.32, fw * 0.76, fd * 0.42);
+      ctx.beginPath();
+      ctx.arc(0, fd * 0.2, Math.min(fw, fd) * 0.16, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (item.type === 'chaudiere_boiler') {
+      ctx.beginPath();
+      ctx.arc(0, 0, Math.min(fw, fd) * 0.22, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (item.type === 'wall_mirror_arch') {
+      ctx.beginPath();
+      ctx.moveTo(-fw * 0.3, fd * 0.2);
+      ctx.lineTo(fw * 0.2, -fd * 0.25);
+      ctx.stroke();
     } else if (
       item.type === 'bed_double' ||
       item.type === 'bed_single' ||

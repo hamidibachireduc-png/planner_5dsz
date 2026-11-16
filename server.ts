@@ -427,7 +427,8 @@ async function startServer() {
                     depth: { type: Type.NUMBER, description: 'عمق الغرفة بالمتر' },
                     floorStyle: {
                       type: Type.STRING,
-                      description: 'أحد القيم: oak, walnut, marble, tile, concrete, terrazzo, carpet',
+                      description:
+                        'أحد القيم: oak, walnut, marble, tile, concrete, terrazzo, carpet, zellige_casbah, zellige_tlemcen, bejaia_terracotta, sahara_sandstone, ceramic_marble_dz, ceramic_calacatta, ceramic_nero_marquina, ceramic_hex_nordic, ceramic_herringbone, ceramic_emerald_gloss, ceramic_travertine',
                     },
                   },
                   required: ['name', 'x', 'z', 'width', 'depth'],

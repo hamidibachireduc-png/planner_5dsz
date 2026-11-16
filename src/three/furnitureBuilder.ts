@@ -87,6 +87,7 @@ export function buildFurnitureGroup(
     'chandelier',
     'ac_split',
     'water_heater',
+    'chaudiere_boiler',
     'smart_tv_wall',
     'towel_warmer',
     'range_hood',
@@ -1215,6 +1216,144 @@ export function buildFurnitureGroup(
       addPart(root, new THREE.CylinderGeometry(r * 0.86, r * 0.86, 0.04, 8), makeMat('#38BDF8', 0.1, 0.1), 0, 0.35, 0);
       addPart(root, new THREE.CylinderGeometry(0.12, 0.18, h * 0.65, 16), ceramicMat, 0, h * 0.48, 0);
       addPart(root, new THREE.CylinderGeometry(0.28, 0.12, 0.12, 16), brassMat, 0, h * 0.82, 0);
+      break;
+    }
+
+    case 'algerian_salon_u': {
+      const seatD = 0.82;
+      // Back section
+      addPart(root, new THREE.BoxGeometry(w, 0.18, seatD), accentMat, 0, 0.12, -d / 2 + seatD / 2);
+      addPart(root, new THREE.BoxGeometry(w - 0.08, 0.2, seatD - 0.08), primaryMat, 0, 0.31, -d / 2 + seatD / 2 + 0.02);
+      addPart(root, new THREE.BoxGeometry(w, h - 0.35, 0.16), primaryMat, 0, h * 0.65, -d / 2 + 0.08);
+      // Left & right wings
+      const wingLen = Math.max(0.6, d - seatD);
+      const wingZ = d / 2 - wingLen / 2;
+      [-1, 1].forEach((side) => {
+        const xPos = side * (w / 2 - seatD / 2);
+        addPart(root, new THREE.BoxGeometry(seatD, 0.18, wingLen), accentMat, xPos, 0.12, wingZ);
+        addPart(root, new THREE.BoxGeometry(seatD - 0.08, 0.2, wingLen - 0.04), primaryMat, xPos, 0.31, wingZ);
+        addPart(root, new THREE.BoxGeometry(0.16, h - 0.35, wingLen), primaryMat, side * (w / 2 - 0.08), h * 0.65, wingZ);
+        // Gold embroidered corner bolsters
+        addPart(root, new THREE.BoxGeometry(0.32, 0.26, 0.32), brassMat, side * (w / 2 - seatD * 0.45), 0.52, -d / 2 + seatD * 0.45);
+      });
+      break;
+    }
+
+    case 'clic_clac_sofa': {
+      // Chrome legs + hardwood frame + plush split mattress seat/backrest + side bolsters
+      addPart(root, new THREE.BoxGeometry(w, 0.12, d * 0.86), accentMat, 0, 0.18, 0.04);
+      addPart(root, new THREE.BoxGeometry(w - 0.06, 0.2, d * 0.65), primaryMat, 0, 0.34, 0.14);
+      addPart(root, new THREE.BoxGeometry(w - 0.06, 0.44, 0.22), primaryMat, 0, 0.6, -d * 0.26, -0.22, 0, 0);
+      [-1, 1].forEach((sx) => {
+        addPart(root, new THREE.CylinderGeometry(0.025, 0.02, 0.12, 10), chromeMat, sx * (w * 0.44), 0.06, d * 0.32);
+        addPart(root, new THREE.CylinderGeometry(0.025, 0.02, 0.12, 10), chromeMat, sx * (w * 0.44), 0.06, -d * 0.32);
+        addPart(root, new THREE.CylinderGeometry(0.09, 0.09, d * 0.58, 12), accentMat, sx * (w * 0.44), 0.48, 0.1, Math.PI / 2, 0, 0);
+      });
+      break;
+    }
+
+    case 'chaudiere_boiler': {
+      const mountY = 1.6;
+      addPart(root, new THREE.BoxGeometry(w, h, d), ceramicMat, 0, mountY, 0);
+      addPart(root, new THREE.BoxGeometry(w * 0.72, 0.14, 0.02), darkMetalMat, 0, mountY - h * 0.18, d / 2 + 0.005);
+      addPart(
+        root,
+        new THREE.BoxGeometry(0.14, 0.06, 0.025),
+        new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 1.0 }),
+        0,
+        mountY - h * 0.18,
+        d / 2 + 0.01,
+        0,
+        0,
+        0,
+        false
+      );
+      // Top flue pipe + bottom brass/copper water pipes
+      addPart(root, new THREE.CylinderGeometry(0.055, 0.055, 0.35, 14), chromeMat, 0, mountY + h / 2 + 0.17, -0.02);
+      [-0.14, -0.05, 0.05, 0.14].forEach((px) => {
+        addPart(root, new THREE.CylinderGeometry(0.014, 0.014, 0.35, 10), brassMat, px, mountY - h / 2 - 0.17, 0);
+      });
+      break;
+    }
+
+    case 'ac_armoire': {
+      addPart(root, new THREE.BoxGeometry(w, h, d), ceramicMat, 0, h / 2, 0);
+      addPart(root, new THREE.BoxGeometry(w * 0.84, h * 0.28, 0.02), darkMetalMat, 0, h * 0.78, d / 2 + 0.005);
+      addPart(root, new THREE.BoxGeometry(w * 0.62, 0.1, 0.025), darkMetalMat, 0, h * 0.52, d / 2 + 0.006);
+      addPart(
+        root,
+        new THREE.BoxGeometry(0.14, 0.045, 0.03),
+        new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x0284c7, emissiveIntensity: 0.9 }),
+        0,
+        h * 0.52,
+        d / 2 + 0.009,
+        0,
+        0,
+        0,
+        false
+      );
+      break;
+    }
+
+    case 'laundry_sink_lavoir': {
+      const cabH = h - 0.18;
+      addPart(root, new THREE.BoxGeometry(w, cabH, d), accentMat, 0, cabH / 2, 0);
+      addPart(root, new THREE.BoxGeometry(w + 0.03, 0.2, d + 0.03), ceramicMat, 0, cabH + 0.08, 0);
+      addPart(root, new THREE.BoxGeometry(w * 0.8, 0.04, d * 0.72), darkMetalMat, 0, cabH + 0.17, 0.03);
+      addPart(root, new THREE.CylinderGeometry(0.015, 0.018, 0.26, 12), chromeMat, 0, cabH + 0.28, -d * 0.32);
+      break;
+    }
+
+    case 'storage_rack': {
+      [-1, 1].forEach((sx) => {
+        [-1, 1].forEach((sz) => {
+          addPart(root, new THREE.BoxGeometry(0.045, h, 0.045), darkMetalMat, sx * (w / 2 - 0.025), h / 2, sz * (d / 2 - 0.025));
+        });
+      });
+      [0.12, 0.65, 1.2, h - 0.08].forEach((sy) => {
+        addPart(root, new THREE.BoxGeometry(w - 0.02, 0.04, d - 0.02), accentMat, 0, sy, 0);
+      });
+      break;
+    }
+
+    case 'wall_mirror_arch': {
+      addPart(root, new THREE.BoxGeometry(w, h * 0.78, d * 0.6), brassMat, 0, h * 0.42, 0);
+      addPart(root, new THREE.CylinderGeometry(w / 2, w / 2, d * 0.6, 24), brassMat, 0, h * 0.81, 0, Math.PI / 2, 0, 0);
+      addPart(root, new THREE.BoxGeometry(w * 0.9, h * 0.74, 0.02), makeMat('#DBEAFE', 0.06, 0.92), 0, h * 0.42, d * 0.32);
+      addPart(root, new THREE.CylinderGeometry(w * 0.45, w * 0.45, 0.02, 24), makeMat('#DBEAFE', 0.06, 0.92), 0, h * 0.81, d * 0.32, Math.PI / 2, 0, 0);
+      break;
+    }
+
+    case 'garage_car': {
+      const wheelR = 0.32;
+      // Lower chassis body + hood/trunk
+      addPart(root, new THREE.BoxGeometry(w * 0.94, h * 0.42, d * 0.96), primaryMat, 0, wheelR + h * 0.16, 0);
+      // Cabin greenhouse
+      addPart(root, new THREE.BoxGeometry(w * 0.8, h * 0.34, d * 0.5), accentMat, 0, wheelR + h * 0.5, -d * 0.04);
+      // Windshield & rear glass
+      addPart(root, new THREE.BoxGeometry(w * 0.74, h * 0.28, d * 0.52), glassMat, 0, wheelR + h * 0.49, -d * 0.04);
+      // 4 tires + chrome rims
+      [-1, 1].forEach((sx) => {
+        [-d * 0.3, d * 0.3].forEach((wz) => {
+          addPart(root, new THREE.CylinderGeometry(wheelR, wheelR, 0.22, 18), darkMetalMat, sx * (w * 0.44), wheelR, wz, 0, 0, Math.PI / 2);
+          addPart(root, new THREE.CylinderGeometry(wheelR * 0.56, wheelR * 0.56, 0.23, 14), chromeMat, sx * (w * 0.44), wheelR, wz, 0, 0, Math.PI / 2);
+        });
+      });
+      // Front headlights
+      [-w * 0.32, w * 0.32].forEach((hx) => {
+        addPart(
+          root,
+          new THREE.BoxGeometry(0.24, 0.1, 0.04),
+          new THREE.MeshStandardMaterial({ color: 0xfef9c3, emissive: 0xfef08a, emissiveIntensity: 1.4 }),
+          hx,
+          wheelR + h * 0.2,
+          d * 0.48,
+          0,
+          0,
+          0,
+          false
+        );
+      });
       break;
     }
   }

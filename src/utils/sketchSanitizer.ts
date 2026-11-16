@@ -352,6 +352,17 @@ const VALID_FLOOR_STYLES = new Set<RoomFloorStyle>([
   'concrete',
   'terrazzo',
   'carpet',
+  'zellige_casbah',
+  'zellige_tlemcen',
+  'bejaia_terracotta',
+  'sahara_sandstone',
+  'ceramic_marble_dz',
+  'ceramic_calacatta',
+  'ceramic_nero_marquina',
+  'ceramic_hex_nordic',
+  'ceramic_herringbone',
+  'ceramic_emerald_gloss',
+  'ceramic_travertine',
 ]);
 
 function snapQuarter(v: number): number {
@@ -368,16 +379,19 @@ function inferFloorStyle(roomName: string, rawStyle?: unknown): RoomFloorStyle {
   }
   const n = roomName.toLowerCase();
   if (n.includes('حمام') || n.includes('دوش') || n.includes('مرحاض') || n.includes('bath') || n.includes('wc')) {
-    return 'tile';
+    return 'ceramic_hex_nordic';
   }
   if (n.includes('مطبخ') || n.includes('kitchen') || n.includes('cuisine')) {
-    return 'terrazzo';
+    return 'ceramic_marble_dz';
   }
   if (n.includes('صالون') || n.includes('مجلس') || n.includes('ضيوف') || n.includes('salon')) {
-    return 'marble';
+    return 'ceramic_calacatta';
+  }
+  if (n.includes('بهو') || n.includes('مدخل') || n.includes('وسط الدار') || n.includes('فناء داخلي')) {
+    return 'zellige_casbah';
   }
   if (n.includes('فناء') || n.includes('حديقة') || n.includes('شرفة') || n.includes('مرآب') || n.includes('كراج')) {
-    return 'concrete';
+    return 'sahara_sandstone';
   }
   return 'oak';
 }
