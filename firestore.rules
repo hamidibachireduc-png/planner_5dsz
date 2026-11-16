@@ -1,0 +1,148 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == 'bachirofsat@gmail.com';
+    }
+
+    function isValidProOrder(data) {
+      return data.keys().hasAll(['id', 'ownerId', 'customerName', 'contactPhone', 'contactChannel', 'planType', 'paymentMethod', 'baseAmountDzd', 'surchargeDzd', 'totalAmountDzd', 'receiptNote', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'ownerId', 'customerName', 'contactPhone', 'contactChannel', 'planType', 'paymentMethod', 'baseAmountDzd', 'surchargeDzd', 'totalAmountDzd', 'receiptNote', 'status', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && isValidId(data.ownerId)
+        && data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100
+        && data.contactPhone is string && data.contactPhone.size() >= 6 && data.contactPhone.size() <= 30
+        && data.contactChannel is string && (data.contactChannel == 'whatsapp' || data.contactChannel == 'facebook')
+        && data.planType is string && (data.planType == 'monthly' || data.planType == 'annual')
+        && data.paymentMethod is string && (data.paymentMethod == 'baridimob' || data.paymentMethod == 'flexy')
+        && data.baseAmountDzd is number && data.baseAmountDzd >= 100 && data.baseAmountDzd <= 1000000
+        && data.surchargeDzd is number && data.surchargeDzd >= 0 && data.surchargeDzd <= 200000
+        && data.totalAmountDzd is number && data.totalAmountDzd == data.baseAmountDzd + data.surchargeDzd
+        && data.receiptNote is string && data.receiptNote.size() <= 240
+        && data.status is string && (data.status == 'pending' || data.status == 'approved' || data.status == 'rejected')
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFloorPlanData(fp) {
+      return fp is map
+        && fp.keys().hasAll(['rooms', 'walls', 'openings', 'furniture', 'wallHeight', 'unit'])
+        && fp.keys().hasOnly(['rooms', 'walls', 'openings', 'furniture', 'wallHeight', 'unit'])
+        && fp.rooms is list && fp.rooms.size() <= 40
+        && fp.walls is list && fp.walls.size() <= 120
+        && fp.openings is list && fp.openings.size() <= 80
+        && fp.furniture is list && fp.furniture.size() <= 150
+        && fp.wallHeight is number && fp.wallHeight >= 2.0 && fp.wallHeight <= 6.0
+        && fp.unit is string && (fp.unit == 'm' || fp.unit == 'ft');
+    }
+
+    function isValidProject(data) {
+      return data.keys().hasAll(['id', 'ownerId', 'title', 'floorPlanData', 'roomCount', 'totalAreaSqm', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'ownerId', 'title', 'description', 'templateKey', 'floorPlanData', 'roomCount', 'totalAreaSqm', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && (!('description' in data) || (data.description is string && data.description.size() <= 500))
+        && (!('templateKey' in data) || (data.templateKey is string && data.templateKey.size() <= 64))
+        && isValidFloorPlanData(data.floorPlanData)
+        && data.roomCount is number && data.roomCount >= 0 && data.roomCount <= 100
+        && data.totalAreaSqm is number && data.totalAreaSqm >= 0 && data.totalAreaSqm <= 10000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserSettings(data) {
+      return data.keys().hasAll(['ownerId', 'brandName', 'preferredUnit', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'brandName', 'preferredUnit', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.brandName is string && data.brandName.size() >= 1 && data.brandName.size() <= 80
+        && data.preferredUnit is string && (data.preferredUnit == 'm' || data.preferredUnit == 'ft')
+        && data.updatedAt is timestamp;
+    }
+
+    match /projects/{projectId} {
+      allow get: if isSignedIn() && isValidId(projectId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn()
+        && isValidId(projectId)
+        && isValidProject(incoming())
+        && incoming().id == projectId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(projectId)
+        && isValidProject(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'floorPlanData', 'roomCount', 'totalAreaSqm', 'updatedAt']);
+      allow delete: if isSignedIn() && isValidId(projectId) && existing().ownerId == request.auth.uid;
+    }
+
+    match /userSettings/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && isValidId(userId)
+        && userId == request.auth.uid
+        && isValidUserSettings(incoming())
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(userId)
+        && userId == request.auth.uid
+        && isValidUserSettings(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['brandName', 'preferredUnit', 'updatedAt']);
+      allow delete: if isSignedIn() && isValidId(userId) && userId == request.auth.uid;
+    }
+
+    match /proOrders/{orderId} {
+      allow get: if isSignedIn() && isValidId(orderId) && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && isValidId(orderId)
+        && isValidProOrder(incoming())
+        && incoming().id == orderId
+        && incoming().ownerId == request.auth.uid
+        && incoming().status == 'pending'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(orderId)
+        && isValidProOrder(incoming())
+        && isAdmin()
+        && existing().status == 'pending'
+        && incoming().ownerId == existing().ownerId
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isSignedIn() && isValidId(orderId) && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+  }
+}

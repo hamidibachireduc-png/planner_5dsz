@@ -1,0 +1,206 @@
+{
+  "entities": {
+    "Project": {
+      "title": "HomeDesignProject",
+      "description": "A user-created 2D/3D architectural floor plan and interior design project.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Unique project identifier."
+        },
+        "ownerId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Firebase Auth UID of the project owner."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Project title."
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Optional architectural notes or summary."
+        },
+        "templateKey": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Identifier of starter template if created from a template."
+        },
+        "floorPlanData": {
+          "type": "object",
+          "description": "Structured map containing rooms, walls, openings, furniture, wallHeight, and unit."
+        },
+        "roomCount": {
+          "type": "number",
+          "description": "Total number of rooms in the floor plan."
+        },
+        "totalAreaSqm": {
+          "type": "number",
+          "description": "Total floor area in square meters."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-modified timestamp."
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "title",
+        "floorPlanData",
+        "roomCount",
+        "totalAreaSqm",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserSettings": {
+      "title": "UserStudioSettings",
+      "description": "Personal studio brand name and unit preferences for a user.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Firebase Auth UID."
+        },
+        "brandName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Personalized studio name displayed across the app."
+        },
+        "preferredUnit": {
+          "type": "string",
+          "enum": ["m", "ft"],
+          "description": "Preferred measurement unit."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["ownerId", "brandName", "preferredUnit", "updatedAt"]
+    },
+    "ProSubscriptionOrder": {
+      "title": "ProSubscriptionOrder",
+      "description": "A user request to activate Pro subscription via BaridiMob or Flexy (+10%).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "ownerId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "customerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "contactPhone": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 30
+        },
+        "contactChannel": {
+          "type": "string",
+          "enum": ["whatsapp", "facebook"]
+        },
+        "planType": {
+          "type": "string",
+          "enum": ["monthly", "annual"]
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["baridimob", "flexy"]
+        },
+        "baseAmountDzd": {
+          "type": "number"
+        },
+        "surchargeDzd": {
+          "type": "number"
+        },
+        "totalAmountDzd": {
+          "type": "number"
+        },
+        "receiptNote": {
+          "type": "string",
+          "maxLength": 240
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "ownerId",
+        "customerName",
+        "contactPhone",
+        "contactChannel",
+        "planType",
+        "paymentMethod",
+        "baseAmountDzd",
+        "surchargeDzd",
+        "totalAmountDzd",
+        "receiptNote",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/projects/{projectId}": {
+      "schema": {
+        "$ref": "#/entities/Project"
+      },
+      "description": "Stores saved architectural home design projects per authenticated user."
+    },
+    "/userSettings/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserSettings"
+      },
+      "description": "Stores user studio branding and measurement unit preferences."
+    },
+    "/proOrders/{orderId}": {
+      "schema": {
+        "$ref": "#/entities/ProSubscriptionOrder"
+      },
+      "description": "Stores BaridiMob and Flexy (+10%) Pro subscription activation orders."
+    }
+  }
+}
