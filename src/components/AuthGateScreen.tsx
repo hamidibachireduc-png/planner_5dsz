@@ -258,7 +258,7 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({
                       </span>
                     </div>
                     <p className="text-[11px] text-emerald-900/90 dark:text-emerald-200/90 leading-relaxed">
-                      بمناسبة الإطلاق، جميع مزايا <strong>نسخة برو</strong> و<strong>200 تصميم جزائري</strong> وإنشاء مشاريع غير محدودة والكاميرا 2D والتحويل من ورقة مفتوحة مجاناً للجميع حتى <strong>16 ديسمبر 2026</strong>.
+                      بمناسبة الإطلاق، الـ <strong>200 تصميم جزائري</strong>، أدوات الرسم الهندسي، ومشاريع غير محدودة مفتوحة مجاناً حتى <strong>16 ديسمبر 2026</strong> (يستثنى من المجاني خيار التصميم من ورقة، الواقع المعزز، وخدمات الذكاء الاصطناعي الحصرية لمشتركي نسخة برو).
                     </p>
                     <button
                       type="button"
@@ -266,7 +266,7 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({
                       className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2.5 text-xs font-bold transition-colors shadow-sm"
                     >
                       <Eye className="w-4 h-4" />
-                      <span>دخول مجاني فوري لجميع المزايا (بدون حساب)</span>
+                      <span>دخول مجاني فوري (بدون حساب)</span>
                     </button>
                   </div>
                 ) : (

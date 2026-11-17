@@ -3,6 +3,7 @@ import {
   DrawingSpacePreset,
   FloorPlanData,
   FurnitureCategory,
+  FurnitureItem,
   FurnitureType,
   RoomFloorStyle,
 } from '../types/planner';
@@ -236,6 +237,26 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
     defaultPrimary: '#9C734B',
     defaultAccent: '#475569',
   },
+  {
+    type: 'maida_low_table',
+    name: 'مايدة فطور وجلسة أرضية جزائرية',
+    category: 'living',
+    width: 0.95,
+    depth: 0.95,
+    height: 0.34,
+    defaultPrimary: '#7C4A27',
+    defaultAccent: '#D4AF37',
+  },
+  {
+    type: 'matrah_traditional_bed',
+    name: 'مطرح صوف وفرش أرضي تقليدي للضياف',
+    category: 'living',
+    width: 1.9,
+    depth: 0.9,
+    height: 0.34,
+    defaultPrimary: '#7C2D12',
+    defaultAccent: '#EAE6DF',
+  },
 
   // ── Bedroom ──
   {
@@ -357,6 +378,16 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
     height: 2.25,
     defaultPrimary: '#F5F2EB',
     defaultAccent: '#64748B',
+  },
+  {
+    type: 'sewing_machine_table',
+    name: 'ماكينة خياطة تقليدية بطاولة خشب',
+    category: 'bedroom',
+    width: 0.95,
+    depth: 0.48,
+    height: 0.96,
+    defaultPrimary: '#7C4A27',
+    defaultAccent: '#1E293B',
   },
 
   // ── Kitchen ──
@@ -509,6 +540,66 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
     height: 1.9,
     defaultPrimary: '#475569',
     defaultAccent: '#C59B6D',
+  },
+  {
+    type: 'potager_straight',
+    name: 'بوتاجي عادي للمطبخ (رخام وحوض)',
+    category: 'kitchen',
+    width: 2.2,
+    depth: 0.65,
+    height: 0.88,
+    defaultPrimary: '#EAE6DF',
+    defaultAccent: '#1E293B',
+  },
+  {
+    type: 'potager_curved',
+    name: 'بوتاجي منحني للمطبخ (Potager Courbé)',
+    category: 'kitchen',
+    width: 2.1,
+    depth: 0.78,
+    height: 0.88,
+    defaultPrimary: '#F5F2EB',
+    defaultAccent: '#334155',
+  },
+  {
+    type: 'potager_corner',
+    name: 'بوتاجي الزاوية للكوزينة (L-Shape Potager)',
+    category: 'kitchen',
+    width: 2.2,
+    depth: 1.8,
+    height: 0.88,
+    defaultPrimary: '#EAE6DF',
+    defaultAccent: '#1E293B',
+  },
+  {
+    type: 'tabouna_bread_oven',
+    name: 'طابونة الخبز والمطلوع التقليدية',
+    category: 'kitchen',
+    width: 0.56,
+    depth: 0.56,
+    height: 0.72,
+    defaultPrimary: '#B45309',
+    defaultAccent: '#334155',
+  },
+  {
+    type: 'kitchen_wall_cupboard_dz',
+    name: 'بلاكار كوزينة علوي (معلق)',
+    category: 'kitchen',
+    width: 1.4,
+    depth: 0.36,
+    height: 0.75,
+    defaultPrimary: '#F8FAFC',
+    defaultAccent: '#8C6239',
+  },
+  {
+    type: 'dish_rack_counter_dz',
+    name: 'ركن إيغوتوار وتصفية الأواني للمطبخ',
+    category: 'kitchen',
+    width: 1.0,
+    depth: 0.62,
+    height: 0.92,
+    defaultPrimary: '#EAE6DF',
+    defaultAccent: '#CBD5E1',
   },
 
   // ── Home Appliances & Smart Devices (الكهرومنزلية باللهجة الجزائرية) ──
@@ -816,6 +907,56 @@ const BASE_FURNITURE_CATALOG: Omit<CatalogItemDef, 'catalogId'>[] = [
     defaultPrimary: '#CBD5E1',
     defaultAccent: '#F8FAFC',
   },
+  {
+    type: 'toilet_arabic',
+    name: 'تواليت عربي (تركي أرضي)',
+    category: 'bathroom',
+    width: 0.62,
+    depth: 0.72,
+    height: 0.62,
+    defaultPrimary: '#F8FAFC',
+    defaultAccent: '#CBD5E1',
+  },
+  {
+    type: 'toilet_anglaise',
+    name: 'تواليت انقلاز (كرسي إنجليزي)',
+    category: 'bathroom',
+    width: 0.45,
+    depth: 0.7,
+    height: 0.8,
+    defaultPrimary: '#F8FAFC',
+    defaultAccent: '#E2E8F0',
+  },
+  {
+    type: 'shower_standard',
+    name: 'دوش عادي (كابينة وباسين)',
+    category: 'bathroom',
+    width: 0.95,
+    depth: 0.95,
+    height: 2.05,
+    defaultPrimary: '#F8FAFC',
+    defaultAccent: '#94A3B8',
+  },
+  {
+    type: 'shower_italian',
+    name: 'دوش إيطالي أرضي بزجاج مفتوح',
+    category: 'bathroom',
+    width: 1.35,
+    depth: 0.95,
+    height: 2.1,
+    defaultPrimary: '#E2E8F0',
+    defaultAccent: '#0F172A',
+  },
+  {
+    type: 'shower_arabic_hammam',
+    name: 'دوش عربي / حمام بلدي بمقعد وسطل',
+    category: 'bathroom',
+    width: 1.45,
+    depth: 1.15,
+    height: 0.85,
+    defaultPrimary: '#D8B98A',
+    defaultAccent: '#0F766E',
+  },
 
   // ── Decor, Lighting & Outdoor ──
   {
@@ -1041,6 +1182,20 @@ const BASE_REFERENCE_PRICES_DZD: Partial<Record<FurnitureType, number>> = {
   courtyard_fountain: 115000,
   wall_mirror_arch: 34000,
   garage_car: 0,
+  potager_straight: 115000,
+  potager_curved: 145000,
+  potager_corner: 195000,
+  tabouna_bread_oven: 11500,
+  kitchen_wall_cupboard_dz: 46000,
+  dish_rack_counter_dz: 38000,
+  toilet_arabic: 14500,
+  toilet_anglaise: 28000,
+  shower_standard: 48000,
+  shower_italian: 86000,
+  shower_arabic_hammam: 65000,
+  maida_low_table: 14000,
+  matrah_traditional_bed: 26000,
+  sewing_machine_table: 39000,
 };
 
 export const FURNITURE_CATALOG: CatalogItemDef[] = [
@@ -1052,6 +1207,40 @@ export const FURNITURE_CATALOG: CatalogItemDef[] = [
   })),
   ...LUXURY_ALGERIAN_CATALOG_ITEMS,
 ];
+
+export function getDefaultFurniturePriceDzd(item: Pick<FurnitureItem, 'type' | 'catalogId'>): number {
+  if (item.catalogId) {
+    const matched = FURNITURE_CATALOG.find((c) => c.catalogId === item.catalogId);
+    if (matched && typeof matched.defaultPriceDzd === 'number') {
+      return matched.defaultPriceDzd;
+    }
+  }
+  return BASE_REFERENCE_PRICES_DZD[item.type] ?? 0;
+}
+
+export function computeFurnitureTotalCostDzd(items: FurnitureItem[]): {
+  totalDzd: number;
+  explicitCount: number;
+  totalCount: number;
+} {
+  let totalDzd = 0;
+  let explicitCount = 0;
+  for (const f of items) {
+    if (typeof f.priceDzd === 'number') {
+      totalDzd += Math.max(0, f.priceDzd);
+      if (f.priceDzd > 0) explicitCount += 1;
+    } else {
+      const ref = getDefaultFurniturePriceDzd(f);
+      totalDzd += ref;
+      if (ref > 0) explicitCount += 1;
+    }
+  }
+  return {
+    totalDzd,
+    explicitCount,
+    totalCount: items.length,
+  };
+}
 
 export type StyleOrigin = 'algerian' | 'international';
 

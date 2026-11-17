@@ -98,6 +98,8 @@ const LIVING_BLUEPRINTS: ArchetypeBlueprint[] = [
   { slug: 'fireplace_lux', type: 'fireplace_modern', category: 'living', baseName: 'شوميني صالون ديكوري رخامي', width: 1.7, depth: 0.48, height: 1.18, basePriceDzd: 115000 },
   { slug: 'privacy_mashrabiya', type: 'privacy_partition', category: 'living', baseName: 'حاجز خصوصية سدة وهول', width: 1.9, depth: 0.14, height: 2.15, basePriceDzd: 45000 },
   { slug: 'hall_bench', type: 'hallway_coat_bench', category: 'living', baseName: 'بورت مونتو وبورت شوسير للهول', width: 1.35, depth: 0.44, height: 1.88, basePriceDzd: 58000 },
+  { slug: 'maida_trad', type: 'maida_low_table', category: 'living', baseName: 'مايدة فطور وجلسة أرضية', width: 1.0, depth: 1.0, height: 0.35, basePriceDzd: 16500 },
+  { slug: 'matrah_trad', type: 'matrah_traditional_bed', category: 'living', baseName: 'مطرح صوف تقليدي للضيافة', width: 2.0, depth: 0.92, height: 0.36, basePriceDzd: 32000 },
 ];
 
 const BEDROOM_BLUEPRINTS: ArchetypeBlueprint[] = [
@@ -113,6 +115,7 @@ const BEDROOM_BLUEPRINTS: ArchetypeBlueprint[] = [
   { slug: 'sliding_closet', type: 'sliding_wardrobe_mirror', category: 'bedroom', baseName: 'بلاكار كوليسون بمرآة', width: 2.4, depth: 0.65, height: 2.3, basePriceDzd: 148000 },
   { slug: 'dressing_room', type: 'walk_in_closet', category: 'bedroom', baseName: 'دريسينغ زاوية متكامل', width: 2.4, depth: 1.7, height: 2.25, basePriceDzd: 220000 },
   { slug: 'prayer_nook', type: 'prayer_corner', category: 'bedroom', baseName: 'محراب وركن صلاة منزلي هادئ', width: 1.25, depth: 0.95, height: 0.8, basePriceDzd: 28000 },
+  { slug: 'sewing_trad', type: 'sewing_machine_table', category: 'bedroom', baseName: 'ماكينة خياطة تقليدية بطاولة', width: 0.98, depth: 0.48, height: 0.96, basePriceDzd: 44000 },
 ];
 
 const KITCHEN_BLUEPRINTS: ArchetypeBlueprint[] = [
@@ -130,6 +133,12 @@ const KITCHEN_BLUEPRINTS: ArchetypeBlueprint[] = [
   { slug: 'k_prep_table', type: 'couscous_prep_counter', category: 'kitchen', baseName: 'طابلة عجن وقصعة رخامية', width: 1.5, depth: 0.72, height: 0.88, basePriceDzd: 66000 },
   { slug: 'k_freezer_deep', type: 'freezer_chest', category: 'kitchen', baseName: 'كونجيلاتور أفقي عميق 450 لتر', width: 1.35, depth: 0.7, height: 0.88, basePriceDzd: 88000 },
   { slug: 'k_rack_storage', type: 'storage_rack', category: 'kitchen', baseName: 'إيطاجير تخزين للمؤونة والكراج', width: 1.25, depth: 0.46, height: 1.95, basePriceDzd: 28000 },
+  { slug: 'k_potager_str', type: 'potager_straight', category: 'kitchen', baseName: 'بوتاجي كوزينة عادي برخام وحوض', width: 2.4, depth: 0.66, height: 0.88, basePriceDzd: 128000 },
+  { slug: 'k_potager_crv', type: 'potager_curved', category: 'kitchen', baseName: 'بوتاجي كوزينة منحني (Courbé)', width: 2.2, depth: 0.8, height: 0.88, basePriceDzd: 158000 },
+  { slug: 'k_potager_cnr', type: 'potager_corner', category: 'kitchen', baseName: 'بوتاجي الزاوية (L-Shape Potager)', width: 2.4, depth: 1.9, height: 0.88, basePriceDzd: 215000 },
+  { slug: 'k_tabouna', type: 'tabouna_bread_oven', category: 'kitchen', baseName: 'طابونة الخبز والمطلوع التقليدية', width: 0.58, depth: 0.58, height: 0.74, basePriceDzd: 13500 },
+  { slug: 'k_cupboard_up', type: 'kitchen_wall_cupboard_dz', category: 'kitchen', baseName: 'بلاكار كوزينة علوي بزجاج', width: 1.5, depth: 0.36, height: 0.78, basePriceDzd: 52000 },
+  { slug: 'k_egouttoir', type: 'dish_rack_counter_dz', category: 'kitchen', baseName: 'ركن إيغوتوار وتصفية الأواني', width: 1.05, depth: 0.64, height: 0.92, basePriceDzd: 42000 },
 ];
 
 const APPLIANCE_BLUEPRINTS: ArchetypeBlueprint[] = [
@@ -177,6 +186,11 @@ const BATHROOM_BLUEPRINTS: ArchetypeBlueprint[] = [
   { slug: 'wudu_station', type: 'ablution_station', category: 'bathroom', baseName: 'مغسل وضوء منزلي مريح بالمقعد', width: 0.78, depth: 0.56, height: 0.74, basePriceDzd: 42000 },
   { slug: 'towel_radiator', type: 'towel_warmer', category: 'bathroom', baseName: 'سيش سيرفيات ديكوري', width: 0.62, depth: 0.14, height: 1.25, basePriceDzd: 29000 },
   { slug: 'laundry_unit', type: 'laundry_hamper', category: 'bathroom', baseName: 'بلكار غسيل ومنظفات للحمام', width: 0.9, depth: 0.46, height: 0.95, basePriceDzd: 36000 },
+  { slug: 'wc_arabic', type: 'toilet_arabic', category: 'bathroom', baseName: 'تواليت عربي أرضي سيراميك', width: 0.64, depth: 0.74, height: 0.64, basePriceDzd: 16500 },
+  { slug: 'wc_anglaise', type: 'toilet_anglaise', category: 'bathroom', baseName: 'تواليت انقلاز فاخر بشطاف', width: 0.46, depth: 0.72, height: 0.82, basePriceDzd: 34000 },
+  { slug: 'sh_standard', type: 'shower_standard', category: 'bathroom', baseName: 'دوش عادي بكابينة زجاج', width: 1.0, depth: 1.0, height: 2.08, basePriceDzd: 56000 },
+  { slug: 'sh_italian', type: 'shower_italian', category: 'bathroom', baseName: 'دوش إيطالي أرضي فاخر', width: 1.4, depth: 1.0, height: 2.15, basePriceDzd: 98000 },
+  { slug: 'sh_arabic', type: 'shower_arabic_hammam', category: 'bathroom', baseName: 'دوش عربي / حمام بلدي بمقعد', width: 1.5, depth: 1.2, height: 0.88, basePriceDzd: 78000 },
 ];
 
 const DECOR_BLUEPRINTS: ArchetypeBlueprint[] = [

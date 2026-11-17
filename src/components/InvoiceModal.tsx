@@ -1,9 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Calculator,
+  Camera,
   Check,
   Copy,
+  Download,
   FileDown,
+  Grid3X3,
+  ImagePlus,
+  Images,
   Plus,
   Receipt,
   Trash2,
@@ -23,6 +29,7 @@ import {
   FurnitureItem,
   InvoiceCustomItem,
   InvoiceCustomerInfo,
+  ProjectShowcaseImage,
 } from '../types/planner';
 import { InvoicePdfRow, exportInvoiceToPdf } from '../utils/invoicePdfExporter';
 
@@ -34,6 +41,11 @@ interface InvoiceModalProps {
   initialWallLengthM?: number;
   initialWallHeightM?: number;
   initialRegion?: AlgeriaRegion;
+  showcaseImages?: ProjectShowcaseImage[];
+  onUpdateShowcaseImages?: React.Dispatch<React.SetStateAction<ProjectShowcaseImage[]>>;
+  onCapture2D?: () => string | null;
+  onCapture3D?: () => string | null;
+  focusShowcaseSection?: boolean;
   onUpdateFurniturePrice?: (furnitureId: string, nextPriceDzd: number | undefined) => void;
   onClose: () => void;
 }
@@ -55,6 +67,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   initialWallLengthM = 45,
   initialWallHeightM = 2.8,
   initialRegion = 'center',
+  showcaseImages,
+  onUpdateShowcaseImages,
+  onCapture2D,
+  onCapture3D,
+  focusShowcaseSection = false,
   onUpdateFurniturePrice,
   onClose,
 }) => {
@@ -74,6 +91,20 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   // Local fallback price map when InvoiceModal is opened standalone without floorPlan mutation handler
   const [localPriceOverrides, setLocalPriceOverrides] = useState<Record<string, number | undefined>>({});
 
+  // Showcase gallery state (uses parent state if supplied, otherwise internal)
+  const [localShowcase, setLocalShowcase] = useState<ProjectShowcaseImage[]>([]);
+  const activeShowcase = showcaseImages ?? localShowcase;
+  const setShowcase = onUpdateShowcaseImages ?? setLocalShowcase;
+  const [showcaseFeedback, setShowcaseFeedback] = useState<string | null>(null);
+  const showcaseUploadRef = useRef<HTMLInputElement | null>(null);
+  const showcaseSectionRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (focusShowcaseSection && showcaseSectionRef.current) {
+      showcaseSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [focusShowcaseSection]);
+
   const [customer, setCustomer] = useState<InvoiceCustomerInfo>(() => ({
     customerName: '',
     customerPhone: '',
@@ -81,7 +112,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     invoiceNumber: `INV-${new Date().getFullYear()}-${String(Math.floor(1000 + Math.random() * 9000))}`,
     dateStr: new Date().toLocaleDateString('ar-DZ'),
     discountPct: 0,
-    notes: '',
+    notes: 'ملاحظة: هذه القيم والكميات تقديرية استرشادية فقط وليست نهائية.',
   }));
 
   const [customItems, setCustomItems] = useState<InvoiceCustomItem[]>([
@@ -242,6 +273,101 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     setNewCustomPrice(0);
   };
 
+  const notifyShowcase = (msg: string) => {
+    setShowcaseFeedback(msg);
+    setTimeout(() => setShowcaseFeedback(null), 2600);
+  };
+
+  const handleCapture2DPhoto = () => {
+    if (!onCapture2D) return;
+    const dataUrl = onCapture2D();
+    if (!dataUrl) {
+      notifyShowcase('تعذر التقاط المخطط 2D — تأكد من فتح العرض ثنائي الأبعاد.');
+      return;
+    }
+    const item: ProjectShowcaseImage = {
+      id: `img_2d_${Date.now()}`,
+      source: '2d',
+      title: `مخطط هندسي 2D (${activeShowcase.length + 1})`,
+      caption: `${projectTitle} — توزيع المساحات والقياسات`,
+      dataUrl,
+      selectedForClient: true,
+    };
+    setShowcase((prev) => [...prev, item]);
+    notifyShowcase('تمت إضافة صورة المخطط 2D للعرض');
+  };
+
+  const handleCapture3DPhoto = () => {
+    if (!onCapture3D) return;
+    const dataUrl = onCapture3D();
+    if (!dataUrl) {
+      notifyShowcase('تعذر التقاط المنظور 3D — تأكد من فتح العرض ثلاثي الأبعاد.');
+      return;
+    }
+    const item: ProjectShowcaseImage = {
+      id: `img_3d_${Date.now()}`,
+      source: '3d',
+      title: `منظور ثلاثي الأبعاد (${activeShowcase.length + 1})`,
+      caption: `${projectTitle} — معاينة 3D للزبون`,
+      dataUrl,
+      selectedForClient: true,
+    };
+    setShowcase((prev) => [...prev, item]);
+    notifyShowcase('تمت إضافة لقطة المنظور 3D للعرض');
+  };
+
+  const handleUploadShowcaseFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (files.length === 0) return;
+    const loaded: ProjectShowcaseImage[] = [];
+    for (const file of files) {
+      const dataUrl = await new Promise<string | null>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      });
+      if (dataUrl) {
+        loaded.push({
+          id: `img_up_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          source: 'upload',
+          title: file.name.replace(/\.[^.]+$/, '') || 'صورة مشروع',
+          caption: 'صورة مرفقة للعرض على الزبون',
+          dataUrl,
+          selectedForClient: true,
+        });
+      }
+    }
+    if (loaded.length > 0) {
+      setShowcase((prev) => [...prev, ...loaded]);
+      notifyShowcase(`تمت إضافة ${loaded.length} صورة للمعرض`);
+    }
+  };
+
+  const downloadSingleImage = (img: ProjectShowcaseImage, index: number) => {
+    const a = document.createElement('a');
+    a.href = img.dataUrl;
+    const safeTitle = (img.title || `photo-${index + 1}`)
+      .trim()
+      .replace(/[/\\?%*:|"<>]/g, '-')
+      .replace(/\s+/g, '_');
+    a.download = `${safeTitle}.png`;
+    a.click();
+  };
+
+  const handleDownloadSelectedImages = () => {
+    const selected = activeShowcase.filter((s) => s.selectedForClient);
+    if (selected.length === 0) {
+      notifyShowcase('اختر صورة واحدة على الأقل لتنزيلها');
+      return;
+    }
+    selected.forEach((img, idx) => {
+      window.setTimeout(() => downloadSingleImage(img, idx), idx * 180);
+    });
+    notifyShowcase(`جارٍ تنزيل ${selected.length} صورة مختارة للزبون`);
+  };
+
   const handleExportPdf = async () => {
     if (exportingPdf) return;
     setExportingPdf(true);
@@ -288,6 +414,14 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       const regionLabel =
         ALGERIA_REGIONS.find((r) => r.id === region)?.label || 'الوسط';
 
+      const selectedImagesForPdf = activeShowcase
+        .filter((s) => s.selectedForClient)
+        .map((s) => ({
+          title: s.title,
+          caption: s.caption,
+          dataUrl: s.dataUrl,
+        }));
+
       await exportInvoiceToPdf({
         brandName,
         projectTitle,
@@ -301,6 +435,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         discountDzd,
         grandTotalDzd,
         rows,
+        showcaseImages: selectedImagesForPdf,
       });
     } finally {
       setExportingPdf(false);
@@ -310,7 +445,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const handleCopySummary = async () => {
     const regionLabel = ALGERIA_REGIONS.find((r) => r.id === region)?.label || 'الوسط';
     const text = [
-      `📄 فاتورة الحسابات — ${brandName}`,
+      `📄 فاتورة تقديرية ومقايسة أولية — ${brandName}`,
       `رقم الفاتورة: ${customer.invoiceNumber} | التاريخ: ${customer.dateStr}`,
       `المشروع: ${projectTitle}`,
       customer.customerName ? `العميل: ${customer.customerName} (${customer.wilaya})` : `المنطقة: ${regionLabel}`,
@@ -320,7 +455,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       customSubtotalDzd > 0 ? `• بنود إضافية: ${formatDzd(customSubtotalDzd)}` : null,
       discountDzd > 0 ? `• التخفيض (${discountPct}%): -${formatDzd(discountDzd)}` : null,
       `-----------------------------`,
-      `✅ الإجمالي النهائي: ${formatDzd(grandTotalDzd)} (${formatMillionCentimes(grandTotalDzd)})`,
+      `✅ الإجمالي التقديري: ${formatDzd(grandTotalDzd)} (${formatMillionCentimes(grandTotalDzd)})`,
+      `⚠️ ملاحظة هامة: هذه القيم والأسعار تقديرية استرشادية فقط وليست نهائية.`,
       `للتواصل: 0696380965`,
     ]
       .filter(Boolean)
@@ -354,10 +490,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 id="invoice-modal-title"
                 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white truncate"
               >
-                فاتورة الحسابات الشاملة — {projectTitle}
+                فاتورة تقديرية وعرض صور المشروع للزبون — {projectTitle}
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                تجمع أسعار الأثاث والأجهزة (الاختيارية) + تقديرات مواد البناء والدهن بالسوق الجزائري + البنود الإضافية
+                تقدير أولي للأثاث وتكاليف البناء بالسوق الجزائري + تصدير صور المشروع المختارة للزبون
               </p>
             </div>
           </div>
@@ -370,6 +506,14 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             <X className="w-4 h-4" />
             <span>إغلاق</span>
           </button>
+        </div>
+
+        {/* Prominent Estimation Disclaimer */}
+        <div className="px-4 sm:px-6 py-2.5 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-900/70 flex items-center gap-2 text-xs text-amber-900 dark:text-amber-200 shrink-0">
+          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <span className="font-semibold">
+            ملاحظة هامة: جميع الأسعار والكميات والقيم المذكورة في هذه الفاتورة تقديرية استرشادية فقط وليست نهائية، وتخضع للمعاينة الفعلية وسعر السوق وقت التنفيذ.
+          </span>
         </div>
 
         {/* Scrollable Invoice Content */}
@@ -778,10 +922,184 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 type="text"
                 value={customer.notes}
                 onChange={(e) => setCustomer((p) => ({ ...p, notes: e.target.value }))}
-                placeholder="مثال: الأسعار صالحة لمدة 15 يوماً — الدفع نقداً أو عبر بريدي موب"
+                placeholder="مثال: هذه القيم تقديرية وليست نهائية — تخضع للمعاينة الميدانية"
                 className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-1.5"
               />
             </div>
+          </div>
+
+          {/* 5. Section D: Client Project Showcase Photo Selection & Export */}
+          <div
+            ref={showcaseSectionRef}
+            className="rounded-xl border border-indigo-200 dark:border-indigo-900/70 bg-white dark:bg-[#181B20] p-4 space-y-3.5 text-xs"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div>
+                <div className="font-display text-sm font-bold text-slate-900 dark:text-white inline-flex items-center gap-1.5">
+                  <Images className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span>رابعاً: تصدير صور المشروع للعرض على الزبون</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  التقط لقطات من المخطط 2D أو المنظور 3D أو ارفع صوراً واختر ما يُعرض للزبون ضمن ملف الفاتورة التقديرية PDF أو كصور مستقلة.
+                </p>
+              </div>
+
+              <span className="font-mono-nums font-bold text-indigo-700 dark:text-indigo-300">
+                المحددة للزبون: {activeShowcase.filter((s) => s.selectedForClient).length} / {activeShowcase.length}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {onCapture2D && (
+                <button
+                  type="button"
+                  onClick={handleCapture2DPhoto}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/30 hover:bg-blue-100 px-3 py-1.5 font-semibold text-blue-700 dark:text-blue-300 transition-colors"
+                >
+                  <Grid3X3 className="w-3.5 h-3.5" />
+                  <span>التقاط المخطط 2D</span>
+                </button>
+              )}
+
+              {onCapture3D && (
+                <button
+                  type="button"
+                  onClick={handleCapture3DPhoto}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 hover:bg-indigo-100 px-3 py-1.5 font-semibold text-indigo-700 dark:text-indigo-300 transition-colors"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>التقاط المنظور 3D</span>
+                </button>
+              )}
+
+              <input
+                ref={showcaseUploadRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleUploadShowcaseFiles}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => showcaseUploadRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-1.5 font-semibold text-slate-700 dark:text-slate-200 transition-colors"
+              >
+                <ImagePlus className="w-3.5 h-3.5" />
+                <span>رفع صور من الجهاز</span>
+              </button>
+
+              {activeShowcase.some((s) => s.selectedForClient) && (
+                <button
+                  type="button"
+                  onClick={handleDownloadSelectedImages}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/30 hover:bg-emerald-100 px-3 py-1.5 font-semibold text-emerald-700 dark:text-emerald-300 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>تنزيل الصور المختارة</span>
+                </button>
+              )}
+
+              {showcaseFeedback && (
+                <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                  {showcaseFeedback}
+                </span>
+              )}
+            </div>
+
+            {activeShowcase.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-5 text-center text-slate-500 dark:text-slate-400">
+                لا توجد صور مضافة بعد. اضغط على «التقاط المخطط 2D» أو «التقاط المنظور 3D» أو ارفع صوراً ليتم إدراجها للزبون مع الفاتورة التقديرية.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {activeShowcase.map((img, idx) => (
+                  <div
+                    key={img.id}
+                    className={`rounded-xl border p-2.5 space-y-2 transition-colors ${
+                      img.selectedForClient
+                        ? 'border-indigo-500 bg-indigo-50/30 dark:bg-indigo-950/20'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 opacity-75'
+                    }`}
+                  >
+                    <div className="relative aspect-video rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950">
+                      <img
+                        src={img.dataUrl}
+                        alt={img.title}
+                        className="w-full h-full object-contain"
+                      />
+                      <span className="absolute top-1.5 right-1.5 rounded bg-slate-900/80 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                        {img.source === '2d' ? 'مخطط 2D' : img.source === '3d' ? 'منظور 3D' : 'صورة مرفقة'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <input
+                        type="text"
+                        value={img.title}
+                        onChange={(e) =>
+                          setShowcase((prev) =>
+                            prev.map((x) => (x.id === img.id ? { ...x, title: e.target.value } : x))
+                          )
+                        }
+                        placeholder="عنوان اللقطة"
+                        className="w-full rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 font-semibold text-slate-900 dark:text-white"
+                      />
+                      <input
+                        type="text"
+                        value={img.caption || ''}
+                        onChange={(e) =>
+                          setShowcase((prev) =>
+                            prev.map((x) => (x.id === img.id ? { ...x, caption: e.target.value } : x))
+                          )
+                        }
+                        placeholder="وصف مختصر للزبون (اختياري)"
+                        className="w-full rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-[11px] text-slate-600 dark:text-slate-300"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/70 dark:border-slate-800">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700 dark:text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={img.selectedForClient}
+                          onChange={(e) =>
+                            setShowcase((prev) =>
+                              prev.map((x) =>
+                                x.id === img.id ? { ...x, selectedForClient: e.target.checked } : x
+                              )
+                            )
+                          }
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span>عرض للزبون</span>
+                      </label>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => downloadSingleImage(img, idx)}
+                          className="p-1 rounded text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                          title="تنزيل هذه الصورة"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowcase((prev) => prev.filter((x) => x.id !== img.id))
+                          }
+                          className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                          title="حذف الصورة"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -789,7 +1107,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         <div className="px-4 sm:px-6 py-3.5 sm:py-4 pb-safe bg-white dark:bg-[#181B20] border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 shrink-0">
           <div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400">
-              المجموع النهائي {discountDzd > 0 ? `(بعد تخفيض ${discountPct}%)` : ''}
+              المجموع التقديري {discountDzd > 0 ? `(بعد تخفيض ${discountPct}%)` : ''} ·{' '}
+              <span className="text-amber-700 dark:text-amber-400 font-semibold">
+                القيم تقديرية وليست نهائية
+              </span>
             </div>
             <div className="flex flex-wrap items-baseline gap-2.5">
               <span className="text-xl sm:text-2xl font-bold font-mono-nums text-slate-900 dark:text-white">
@@ -818,7 +1139,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60 px-4 py-2 text-xs font-semibold text-white transition-colors"
             >
               <FileDown className="w-4 h-4" />
-              <span>{exportingPdf ? 'جارٍ إنشاء الفاتورة...' : 'تحميل الفاتورة PDF'}</span>
+              <span>
+                {exportingPdf
+                  ? 'جارٍ إنشاء الفاتورة...'
+                  : 'تحميل الفاتورة التقديرية والصور PDF'}
+              </span>
             </button>
           </div>
         </div>

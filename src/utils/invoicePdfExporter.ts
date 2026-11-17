@@ -12,6 +12,12 @@ export interface InvoicePdfRow {
   totalDzd: number | null;
 }
 
+export interface InvoiceShowcasePhoto {
+  title: string;
+  caption?: string;
+  dataUrl: string;
+}
+
 export interface InvoicePdfPayload {
   brandName: string;
   projectTitle: string;
@@ -25,6 +31,7 @@ export interface InvoicePdfPayload {
   discountDzd: number;
   grandTotalDzd: number;
   rows: InvoicePdfRow[];
+  showcaseImages?: InvoiceShowcasePhoto[];
 }
 
 const PAGE_W = 1240;
@@ -137,17 +144,23 @@ function drawInvoiceHeader(
   ctx.fillStyle = '#FFFFFF';
   ctx.font = isContinuation
     ? '700 22px "IBM Plex Sans Arabic", sans-serif'
-    : '700 28px "IBM Plex Sans Arabic", sans-serif';
+    : '700 27px "IBM Plex Sans Arabic", sans-serif';
   ctx.fillText(
-    isContinuation ? `تابع فاتورة الحسابات — ${payload.projectTitle}` : 'فاتورة الحسابات والمقايسة التقديرية',
+    isContinuation
+      ? `تابع الفاتورة التقديرية — ${payload.projectTitle}`
+      : 'فاتورة تقديرية ومقايسة أولية للمشروع',
     textRight,
     isContinuation ? 114 : 124
   );
 
   if (!isContinuation) {
     ctx.fillStyle = '#CBD5E1';
-    ctx.font = '500 15px "IBM Plex Sans Arabic", sans-serif';
-    ctx.fillText(truncate(ctx, `المشروع: ${payload.projectTitle}`, 620), textRight, 158);
+    ctx.font = '500 14px "IBM Plex Sans Arabic", sans-serif';
+    ctx.fillText(
+      truncate(ctx, `المشروع: ${payload.projectTitle} · القيم تقديرية وليست نهائية`, 660),
+      textRight,
+      158
+    );
   }
 
   // Left side badge
@@ -356,7 +369,7 @@ export async function exportInvoiceToPdf(payload: InvoicePdfPayload): Promise<vo
   ctx.textAlign = 'right';
   ctx.fillStyle = '#94A3B8';
   ctx.font = '600 14px "IBM Plex Sans Arabic", sans-serif';
-  ctx.fillText('المبلغ الإجمالي النهائي المستحق', MARGIN_X + 436, y + 52);
+  ctx.fillText('المبلغ الإجمالي التقديري المستحق', MARGIN_X + 436, y + 52);
 
   ctx.fillStyle = '#FFFFFF';
   ctx.font = '700 30px "IBM Plex Sans Arabic", sans-serif';
@@ -400,8 +413,37 @@ export async function exportInvoiceToPdf(payload: InvoicePdfPayload): Promise<vo
   ctx.restore();
   y += 216;
 
+  // Prominent Disclaimer Banner: Values are estimated and not final
+  ensureSpace(78, false);
+  const dCtx = sheet.ctx;
+  dCtx.save();
+  dCtx.fillStyle = '#FFFBEB';
+  dCtx.fillRect(MARGIN_X, y, CONTENT_W, 64);
+  dCtx.strokeStyle = '#F59E0B';
+  dCtx.lineWidth = 2;
+  dCtx.strokeRect(MARGIN_X, y, CONTENT_W, 64);
+  dCtx.direction = 'rtl';
+  dCtx.textAlign = 'right';
+  dCtx.textBaseline = 'middle';
+  dCtx.fillStyle = '#92400E';
+  dCtx.font = '700 15px "IBM Plex Sans Arabic", sans-serif';
+  dCtx.fillText(
+    'ملاحظة هامة: جميع الأسعار والكميات والقيم المذكورة في هذه الفاتورة تقديرية استرشادية فقط وليست نهائية.',
+    PAGE_W - MARGIN_X - 18,
+    y + 22
+  );
+  dCtx.fillStyle = '#B45309';
+  dCtx.font = '500 13px "IBM Plex Sans Arabic", sans-serif';
+  dCtx.fillText(
+    'تخضع التسعيرة النهائية لمعاينة الموقع الفعلية، نوعية المواد المختارة، وتحديثات السوق عند التنفيذ.',
+    PAGE_W - MARGIN_X - 18,
+    y + 46
+  );
+  dCtx.restore();
+  y += 80;
+
   if (payload.customer.notes.trim()) {
-    ensureSpace(70, false);
+    ensureSpace(58, false);
     const nCtx = sheet.ctx;
     nCtx.save();
     nCtx.direction = 'rtl';
@@ -414,9 +456,109 @@ export async function exportInvoiceToPdf(payload: InvoicePdfPayload): Promise<vo
       y + 18
     );
     nCtx.restore();
+    y += 40;
   }
 
   pages.push(sheet.canvas);
+
+  // Append Client Project Showcase Photo Pages (Selected images for client presentation)
+  const showcaseList = (payload.showcaseImages || []).filter((img) => img && img.dataUrl);
+  if (showcaseList.length > 0) {
+    const loadedImgs = await Promise.all(showcaseList.map((item) => loadLogo(item.dataUrl)));
+    const perPage = 4;
+    for (let startIdx = 0; startIdx < showcaseList.length; startIdx += perPage) {
+      const gSheet = newSheet();
+      const gCtx = gSheet.ctx;
+      const gTop = drawInvoiceHeader(gCtx, logo, payload, true);
+
+      // Gallery section banner
+      gCtx.save();
+      gCtx.fillStyle = '#EFF6FF';
+      gCtx.fillRect(MARGIN_X, gTop, CONTENT_W, 56);
+      gCtx.strokeStyle = '#BFDBFE';
+      gCtx.lineWidth = 1.5;
+      gCtx.strokeRect(MARGIN_X, gTop, CONTENT_W, 56);
+      gCtx.direction = 'rtl';
+      gCtx.textAlign = 'right';
+      gCtx.textBaseline = 'middle';
+      gCtx.fillStyle = '#1E3A8A';
+      gCtx.font = '700 18px "IBM Plex Sans Arabic", sans-serif';
+      gCtx.fillText('صور المشروع المختارة للعرض على الزبون', PAGE_W - MARGIN_X - 18, gTop + 20);
+      gCtx.fillStyle = '#B45309';
+      gCtx.font = '600 13px "IBM Plex Sans Arabic", sans-serif';
+      gCtx.fillText(
+        'ملاحظة: التصاميم والأسعار المرافقة للعرض تقديرية وليست نهائية.',
+        PAGE_W - MARGIN_X - 18,
+        gTop + 42
+      );
+      gCtx.restore();
+
+      const gridTop = gTop + 78;
+      const gap = 24;
+      const cardW = (CONTENT_W - gap) / 2;
+      const cardH = 620;
+      const slice = showcaseList.slice(startIdx, startIdx + perPage);
+
+      slice.forEach((photo, localIdx) => {
+        const col = localIdx % 2;
+        const row = Math.floor(localIdx / 2);
+        // RTL: first item on right, second on left
+        const cardX = col === 0 ? PAGE_W - MARGIN_X - cardW : MARGIN_X;
+        const cardY = gridTop + row * (cardH + gap);
+
+        gCtx.save();
+        gCtx.fillStyle = '#F8FAFC';
+        gCtx.fillRect(cardX, cardY, cardW, cardH);
+        gCtx.strokeStyle = '#CBD5E1';
+        gCtx.lineWidth = 1.5;
+        gCtx.strokeRect(cardX, cardY, cardW, cardH);
+
+        const imgBoxPad = 14;
+        const imgBoxW = cardW - imgBoxPad * 2;
+        const imgBoxH = cardH - 94;
+        const imgBoxX = cardX + imgBoxPad;
+        const imgBoxY = cardY + imgBoxPad;
+
+        gCtx.fillStyle = '#FFFFFF';
+        gCtx.fillRect(imgBoxX, imgBoxY, imgBoxW, imgBoxH);
+        gCtx.strokeStyle = '#E2E8F0';
+        gCtx.strokeRect(imgBoxX, imgBoxY, imgBoxW, imgBoxH);
+
+        const loaded = loadedImgs[startIdx + localIdx];
+        if (loaded && loaded.naturalWidth > 0 && loaded.naturalHeight > 0) {
+          const scale = Math.min(imgBoxW / loaded.naturalWidth, imgBoxH / loaded.naturalHeight);
+          const drawW = loaded.naturalWidth * scale;
+          const drawH = loaded.naturalHeight * scale;
+          const drawX = imgBoxX + (imgBoxW - drawW) / 2;
+          const drawY = imgBoxY + (imgBoxH - drawH) / 2;
+          gCtx.drawImage(loaded, drawX, drawY, drawW, drawH);
+        }
+
+        gCtx.direction = 'rtl';
+        gCtx.textAlign = 'right';
+        gCtx.textBaseline = 'middle';
+        gCtx.fillStyle = '#0F172A';
+        gCtx.font = '700 16px "IBM Plex Sans Arabic", sans-serif';
+        gCtx.fillText(
+          truncate(gCtx, `${startIdx + localIdx + 1}. ${photo.title}`, cardW - 28),
+          cardX + cardW - 14,
+          cardY + cardH - 52
+        );
+        if (photo.caption?.trim()) {
+          gCtx.fillStyle = '#64748B';
+          gCtx.font = '500 13px "IBM Plex Sans Arabic", sans-serif';
+          gCtx.fillText(
+            truncate(gCtx, photo.caption.trim(), cardW - 28),
+            cardX + cardW - 14,
+            cardY + cardH - 26
+          );
+        }
+        gCtx.restore();
+      });
+
+      pages.push(gSheet.canvas);
+    }
+  }
 
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   const pdfW = pdf.internal.pageSize.getWidth();

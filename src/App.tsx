@@ -101,11 +101,12 @@ export default function App() {
         )
       : undefined;
 
-  const isUserProActive = Boolean(
-    freePromoActive ||
-      isAdminAuthorized ||
+  const hasPaidOrAdminPro = Boolean(
+    isAdminAuthorized ||
       (matchedSubscriber ? matchedSubscriber.proActive && matchedSubscriber.active : authSession?.proActive)
   );
+
+  const isUserProActive = Boolean(freePromoActive || hasPaidOrAdminPro);
 
   // Sync dark mode class on <html>
   useEffect(() => {
@@ -187,6 +188,25 @@ export default function App() {
       isExisting: false,
       title: 'منزل جديد',
       plan: createBlankFloorPlan(),
+    });
+  };
+
+  const handleOpenGeneratedPlan = (payload: {
+    title: string;
+    floorPlan: FloorPlanData;
+  }) => {
+    if (
+      !consumeGuestDesignSlotOrAlert(
+        'انتهت حصة الدخول المؤقت — يُسمح للزائر بإنشاء تصميم واحد فقط للتجربة. اشترك في نسخة برو لإنشاء تصاميم غير محدودة.'
+      )
+    ) {
+      return;
+    }
+    setActiveProject({
+      projectId: sanitizeId(`proj_${Date.now()}`),
+      isExisting: false,
+      title: payload.title,
+      plan: structuredClone(payload.floorPlan),
     });
   };
 
@@ -450,6 +470,7 @@ export default function App() {
           isSignedIn={true}
           isGuestSession={isGuestSession}
           isUserProActive={isUserProActive}
+          isAiArProActive={hasPaidOrAdminPro}
           onOpenProUpgrade={() => setShowGlobalProModal(true)}
           onToggleTheme={() => setIsDarkTheme((d) => !d)}
           onSaveProject={handleSaveActiveProject}
@@ -461,6 +482,7 @@ export default function App() {
           sessionUser={authSession}
           isAdminAuthorized={isAdminAuthorized}
           isUserProActive={isUserProActive}
+          isAiArProActive={hasPaidOrAdminPro}
           isGuestSession={isGuestSession}
           guestDesignsUsed={guestDesignsUsed}
           projects={projects}
@@ -473,6 +495,7 @@ export default function App() {
           onSignOut={handleSignOut}
           onOpenAdminPanel={() => setShowAdminPanel(true)}
           onOpenNewBlank={handleOpenNewBlank}
+          onStartGeneratedPlan={handleOpenGeneratedPlan}
           onOpenSketchModal={() => setShowSketchModal(true)}
           onOpenTemplate={handleOpenTemplate}
           onOpenWithCatalogItem={handleOpenWithCatalogItem}
@@ -562,7 +585,7 @@ export default function App() {
       <SketchToPlanModal
         isOpen={showSketchModal}
         brandName={brandName}
-        isUserProActive={isUserProActive}
+        isUserProActive={hasPaidOrAdminPro}
         onClose={() => setShowSketchModal(false)}
         onOpenProUpgrade={() => {
           setShowSketchModal(false);

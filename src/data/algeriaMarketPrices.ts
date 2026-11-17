@@ -201,17 +201,94 @@ export const BASE_ALGERIA_PRICES: AlgeriaMaterialPrice[] = [
     notes: 'لوح 1.20×2.50 م للأسقف المستعارة والديكور',
   },
 
-  // ── Labor / Main d'œuvre ──
+  // ── Labor & Concrete Works (per m, m², m³, unit) ──
+  {
+    id: 'labor_wall_brick_m2',
+    name: 'يد عاملة لبناء جدار بالآجر (بريك 8 أو 12)',
+    category: 'labor',
+    unit: 'م² جدار',
+    priceDzd: 1150,
+    minPriceDzd: 900,
+    maxPriceDzd: 1550,
+    trend: 'stable',
+    notes: 'بناء الجدران الداخلية والخارجية بالمتر المربع شاملاً المونة',
+  },
+  {
+    id: 'labor_wall_plaster_m2',
+    name: 'يد عاملة لطلية وتلبيس الجدار (Talochage / Crépissage)',
+    category: 'labor',
+    unit: 'م² تلبيس',
+    priceDzd: 650,
+    minPriceDzd: 500,
+    maxPriceDzd: 900,
+    trend: 'stable',
+    notes: 'تلبيس إسمنتي للجدران (يحسب لكل وجه داخلي أو خارجي)',
+  },
+  {
+    id: 'labor_column_unit',
+    name: 'يد عاملة للبوطون: بيلي / عمود مسلح (Poteau)',
+    category: 'labor',
+    unit: 'بيلي (عمود)',
+    priceDzd: 7500,
+    minPriceDzd: 5500,
+    maxPriceDzd: 10500,
+    trend: 'up',
+    notes: 'كوفراج وحدادة وصب العمود الواحد حتى ارتفاع 3م',
+  },
+  {
+    id: 'labor_beam_ml',
+    name: 'يد عاملة للبوطون: سانتر / حزام مسلح (Chaînage / Poutre)',
+    category: 'labor',
+    unit: 'م طولي',
+    priceDzd: 1650,
+    minPriceDzd: 1200,
+    maxPriceDzd: 2300,
+    trend: 'up',
+    notes: 'كوفراج وتركيب الحديد وصب السانتر بالمتر الطولي',
+  },
+  {
+    id: 'labor_dalle_m2',
+    name: 'يد عاملة للبوطون: دالة كاملة (Dalle Hourdis / Plancher)',
+    category: 'labor',
+    unit: 'م² دالة',
+    priceDzd: 3800,
+    minPriceDzd: 3000,
+    maxPriceDzd: 4900,
+    trend: 'up',
+    notes: 'كوفراج السقف + رص الهوردي والبوتريل + شبكة الحديد + الصب',
+  },
+  {
+    id: 'concrete_ready_m3',
+    name: 'خرسانة مسلحة جاهزة للصب (Béton C25/30)',
+    category: 'structure',
+    unit: 'م³ بوطون',
+    priceDzd: 14500,
+    minPriceDzd: 13000,
+    maxPriceDzd: 16800,
+    trend: 'up',
+    notes: 'لصب البيليات والسوانتر والدالة الكاملة (متوسط السوق الجزائري)',
+  },
+  {
+    id: 'labor_foundation_ml',
+    name: 'يد عاملة للأساسات واللونغرين (Semelles & Longrines)',
+    category: 'labor',
+    unit: 'م طولي',
+    priceDzd: 2200,
+    minPriceDzd: 1700,
+    maxPriceDzd: 2900,
+    trend: 'stable',
+    notes: 'حفر، نظافة، سميلات وأحزمة أرضية بالمتر الطولي',
+  },
   {
     id: 'labor_structure_m2',
-    name: 'يد عاملة للبناء والهيكل (Coffrage & Maçonnerie)',
+    name: 'يد عاملة عامة للبناء والهيكل (شامل بالمتر المربع)',
     category: 'labor',
     unit: 'م² مبني',
     priceDzd: 13500,
     minPriceDzd: 11000,
     maxPriceDzd: 17000,
     trend: 'up',
-    notes: 'أجرة المقاول/البناء للهيكل والخرسانة والآجر',
+    notes: 'أجرة المقاول الإجمالية للهيكل والخرسانة والآجر بالمتر المربع',
   },
   {
     id: 'labor_paint_m2',
@@ -234,6 +311,50 @@ export const BASE_ALGERIA_PRICES: AlgeriaMaterialPrice[] = [
     maxPriceDzd: 1450,
     trend: 'stable',
     notes: 'تركيب الدال دو صول والبلينت مع ضبط الميزان',
+  },
+  {
+    id: 'labor_placo_m2',
+    name: 'يد عاملة لتركيب البلاكو بلاتر والديكور (BA13)',
+    category: 'labor',
+    unit: 'م² سقف',
+    priceDzd: 950,
+    minPriceDzd: 750,
+    maxPriceDzd: 1350,
+    trend: 'stable',
+    notes: 'تركيب الهيكل المعدني وألواح الجبس والبانداج',
+  },
+  {
+    id: 'labor_waterproof_m2',
+    name: 'يد عاملة للكتامة وعزل السطح (Étanchéité)',
+    category: 'labor',
+    unit: 'م² سطح',
+    priceDzd: 850,
+    minPriceDzd: 650,
+    maxPriceDzd: 1200,
+    trend: 'stable',
+    notes: 'تطبيق الباكس والزفت لعزل الأسطح والحمامات',
+  },
+  {
+    id: 'labor_plumbing_pt',
+    name: 'يد عاملة للترصيص الصحي والغاز (نقطة تجهيز)',
+    category: 'labor',
+    unit: 'نقطة',
+    priceDzd: 4500,
+    minPriceDzd: 3500,
+    maxPriceDzd: 6200,
+    trend: 'stable',
+    notes: 'تمديد أنابيب الماء البارد/الساخن والصرف لكل جهاز صحي',
+  },
+  {
+    id: 'labor_electric_pt',
+    name: 'يد عاملة للكهرباء المعمارية (نقطة إنارة/مأخذ)',
+    category: 'labor',
+    unit: 'نقطة',
+    priceDzd: 1400,
+    minPriceDzd: 1000,
+    maxPriceDzd: 2000,
+    trend: 'stable',
+    notes: 'سحب الأسلاك وتثبيت العلب والمآخذ والإنارة لكل نقطة',
   },
 ];
 
@@ -453,6 +574,238 @@ export function computeAlgeriaConstructionEstimate(
     laborTotalDzd,
     grandTotalDzd,
     costPerSqmDzd,
+  };
+}
+
+export interface SmartLaborInputs {
+  wallLengthM: number;
+  wallHeightM: number;
+  plasterFaces: 1 | 2;
+  columnsCount: number;
+  beamsLengthM: number;
+  dalleAreaSqm: number;
+  foundationLengthM: number;
+  tilingAreaSqm: number;
+  paintAreaSqm: number;
+  placoAreaSqm: number;
+  waterproofAreaSqm: number;
+  plumbingPoints: number;
+  electricPoints: number;
+  includeConcreteSupply: boolean;
+}
+
+export interface SmartLaborLine {
+  id: string;
+  label: string;
+  formulaHint: string;
+  quantity: number;
+  unit: string;
+  unitRateDzd: number;
+  totalDzd: number;
+}
+
+export interface SmartLaborEstimateResult {
+  lines: SmartLaborLine[];
+  masonryAndPlasterTotalDzd: number;
+  concreteAndStructureTotalDzd: number;
+  finishingAndTechTotalDzd: number;
+  concreteVolumeM3: number;
+  grandTotalDzd: number;
+}
+
+export function computeSmartLaborEstimate(
+  inputs: SmartLaborInputs,
+  priceList: AlgeriaMaterialPrice[]
+): SmartLaborEstimateResult {
+  const priceMap = new Map<string, number>();
+  priceList.forEach((p) => priceMap.set(p.id, p.priceDzd));
+  const rate = (id: string, fallback: number) => priceMap.get(id) ?? fallback;
+
+  const wallLen = Math.max(0, Number(inputs.wallLengthM) || 0);
+  const wallH = Math.max(2.0, Number(inputs.wallHeightM) || 2.9);
+  const netWallArea = Number((wallLen * wallH * 0.88).toFixed(1)); // deduct ~12% openings
+  const plasterArea = Number((netWallArea * (inputs.plasterFaces === 2 ? 2 : 1)).toFixed(1));
+  const cols = Math.max(0, Math.round(inputs.columnsCount) || 0);
+  const beamsM = Math.max(0, Number(inputs.beamsLengthM) || 0);
+  const dalleSqm = Math.max(0, Number(inputs.dalleAreaSqm) || 0);
+  const foundM = Math.max(0, Number(inputs.foundationLengthM) || 0);
+
+  // Estimated concrete volume (m³): Columns (0.3*0.3*H) + Beams (0.25*0.35*L) + Dalle (0.12m avg slab concrete)
+  const concreteVolumeM3 = Number(
+    (cols * 0.3 * 0.3 * wallH + beamsM * 0.25 * 0.35 + dalleSqm * 0.12).toFixed(2)
+  );
+
+  const lines: SmartLaborLine[] = [];
+
+  const push = (
+    id: string,
+    label: string,
+    formulaHint: string,
+    quantity: number,
+    unit: string,
+    unitRateDzd: number
+  ) => {
+    if (quantity <= 0) return;
+    const roundedQty = Number(quantity.toFixed(1));
+    lines.push({
+      id,
+      label,
+      formulaHint,
+      quantity: roundedQty,
+      unit,
+      unitRateDzd: Math.round(unitRateDzd),
+      totalDzd: Math.round(roundedQty * unitRateDzd),
+    });
+  };
+
+  push(
+    'brick_masonry',
+    'بناء الجدران بالآجر (بريك 8/12)',
+    `${wallLen.toFixed(1)} م × ${wallH.toFixed(2)} م (صافي الفتحات)`,
+    netWallArea,
+    'م²',
+    rate('labor_wall_brick_m2', 1150)
+  );
+
+  push(
+    'wall_plaster',
+    `طلية وتلبيس الجدار (${inputs.plasterFaces === 2 ? 'وجهين' : 'وجه واحد'})`,
+    `${netWallArea.toFixed(1)} م² × ${inputs.plasterFaces}`,
+    plasterArea,
+    'م²',
+    rate('labor_wall_plaster_m2', 650)
+  );
+
+  push(
+    'concrete_columns',
+    'أعمدة البوطون (البيليات - Poteaux)',
+    `${cols} عمود بارتفاع ${wallH.toFixed(2)} م`,
+    cols,
+    'بيلي',
+    rate('labor_column_unit', 7500)
+  );
+
+  push(
+    'concrete_beams',
+    'السوانتر والأحزمة (Chaînages / Poutres)',
+    `حساب بالمتر الطولي (${beamsM.toFixed(1)} م)`,
+    beamsM,
+    'م طولي',
+    rate('labor_beam_ml', 1650)
+  );
+
+  push(
+    'concrete_dalle',
+    'الدالة الكاملة (Dalle Hourdis / Plancher)',
+    `كوفراج + هوردي + حديد + صب`,
+    dalleSqm,
+    'م²',
+    rate('labor_dalle_m2', 3800)
+  );
+
+  push(
+    'foundations',
+    'الأساسات واللونغرين (Semelles & Longrines)',
+    `بالمتر الطولي للأحزمة الأرضية`,
+    foundM,
+    'م طولي',
+    rate('labor_foundation_ml', 2200)
+  );
+
+  if (inputs.includeConcreteSupply && concreteVolumeM3 > 0) {
+    push(
+      'concrete_supply',
+      'تكلفة البوطون الجاهز للصب (C25/30)',
+      `البيليات + السوانتر + الدالة`,
+      concreteVolumeM3,
+      'م³',
+      rate('concrete_ready_m3', 14500)
+    );
+  }
+
+  push(
+    'tile_labor',
+    'يد عاملة للسيراميك والبلاط (Dalle de sol)',
+    `الأرضيات + جدران الحمام والمطبخ`,
+    inputs.tilingAreaSqm,
+    'م²',
+    rate('labor_tile_m2', 1050)
+  );
+
+  push(
+    'paint_labor',
+    'يد عاملة للدهن والأندوي (وجهين)',
+    `الجدران الداخلية والأسقف`,
+    inputs.paintAreaSqm,
+    'م²',
+    rate('labor_paint_m2', 550)
+  );
+
+  push(
+    'placo_labor',
+    'تركيب البلاكو بلاتر والديكور (BA13)',
+    `أسقف مستعارة وديكور`,
+    inputs.placoAreaSqm,
+    'م²',
+    rate('labor_placo_m2', 950)
+  );
+
+  push(
+    'waterproof_labor',
+    'الكتامة وعزل السطح والحمامات (Étanchéité)',
+    `حماية من التسرب والرطوبة`,
+    inputs.waterproofAreaSqm,
+    'م²',
+    rate('labor_waterproof_m2', 850)
+  );
+
+  push(
+    'plumbing_labor',
+    'الترصيص الصحي والغاز (Plomberie)',
+    `نقاط المياه الباردة والساخنة والصرف`,
+    inputs.plumbingPoints,
+    'نقطة',
+    rate('labor_plumbing_pt', 4500)
+  );
+
+  push(
+    'electric_labor',
+    'الكهرباء المعمارية (Électricité)',
+    `مآخذ + إنارة + لوحة توزيع`,
+    inputs.electricPoints,
+    'نقطة',
+    rate('labor_electric_pt', 1400)
+  );
+
+  const byId = (ids: string[]) =>
+    lines.filter((l) => ids.includes(l.id)).reduce((s, l) => s + l.totalDzd, 0);
+
+  const masonryAndPlasterTotalDzd = byId(['brick_masonry', 'wall_plaster']);
+  const concreteAndStructureTotalDzd = byId([
+    'concrete_columns',
+    'concrete_beams',
+    'concrete_dalle',
+    'foundations',
+    'concrete_supply',
+  ]);
+  const finishingAndTechTotalDzd = byId([
+    'tile_labor',
+    'paint_labor',
+    'placo_labor',
+    'waterproof_labor',
+    'plumbing_labor',
+    'electric_labor',
+  ]);
+  const grandTotalDzd =
+    masonryAndPlasterTotalDzd + concreteAndStructureTotalDzd + finishingAndTechTotalDzd;
+
+  return {
+    lines,
+    masonryAndPlasterTotalDzd,
+    concreteAndStructureTotalDzd,
+    finishingAndTechTotalDzd,
+    concreteVolumeM3,
+    grandTotalDzd,
   };
 }
 

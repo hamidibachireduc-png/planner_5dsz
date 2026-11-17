@@ -174,7 +174,21 @@ export type FurnitureType =
   | 'laundry_sink_lavoir'
   | 'storage_rack'
   | 'wall_mirror_arch'
-  | 'garage_car';
+  | 'garage_car'
+  | 'potager_straight'
+  | 'potager_curved'
+  | 'potager_corner'
+  | 'tabouna_bread_oven'
+  | 'kitchen_wall_cupboard_dz'
+  | 'dish_rack_counter_dz'
+  | 'toilet_arabic'
+  | 'toilet_anglaise'
+  | 'shower_standard'
+  | 'shower_italian'
+  | 'shower_arabic_hammam'
+  | 'maida_low_table'
+  | 'matrah_traditional_bed'
+  | 'sewing_machine_table';
 
 export interface FurnitureItem {
   id: string;
@@ -225,11 +239,46 @@ export interface InvoiceCustomerInfo {
   notes: string;
 }
 
+export interface StructuralColumn {
+  id: string;
+  x: number; // center X in meters
+  z: number; // center Z in meters
+  width: number; // meters, e.g. 0.30
+  depth: number; // meters, e.g. 0.30
+  height?: number; // meters, defaults to wallHeight
+  label?: string;
+  color?: string;
+}
+
+export interface StructuralBeam {
+  id: string;
+  x1: number;
+  z1: number;
+  x2: number;
+  z2: number;
+  width: number; // meters, e.g. 0.25
+  height: number; // meters, e.g. 0.35
+  label?: string;
+  color?: string;
+}
+
+export interface ProjectShowcaseImage {
+  id: string;
+  title: string;
+  caption?: string;
+  dataUrl: string;
+  source: '2d' | '3d' | 'upload';
+  selectedForClient: boolean;
+}
+
 export interface FloorPlanData {
   rooms: Room[];
   walls: Wall[];
   openings: Opening[];
   furniture: FurnitureItem[];
+  columns?: StructuralColumn[];
+  beams?: StructuralBeam[];
+  showStructureLayer?: boolean;
   wallHeight: number;
   unit: UnitType;
 }
@@ -255,7 +304,15 @@ export interface UserStudioSettings {
 }
 
 export type ViewMode = '2d' | '3d' | 'split';
-export type EditorTool = 'select' | 'room' | 'wall' | 'door' | 'window' | 'arch';
+export type EditorTool =
+  | 'select'
+  | 'room'
+  | 'wall'
+  | 'door'
+  | 'window'
+  | 'arch'
+  | 'column'
+  | 'beam';
 export type CameraPreset = 'perspective' | 'isometric' | 'top' | 'walkthrough';
 export type LightingMood = 'daylight' | 'golden' | 'evening';
 
@@ -310,6 +367,8 @@ export type SelectionTarget =
   | { kind: 'wall'; id: string }
   | { kind: 'opening'; id: string }
   | { kind: 'furniture'; id: string }
+  | { kind: 'column'; id: string }
+  | { kind: 'beam'; id: string }
   | null;
 
 export interface SketchUnderlayConfig {

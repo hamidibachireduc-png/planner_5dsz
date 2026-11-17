@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ArrowDown,
+  ArrowLeft,
   ArrowRight,
+  ArrowUp,
   Box,
+  Building2,
   Calculator,
   Camera,
   Check,
@@ -16,11 +20,14 @@ import {
   FileText,
   Grid3X3,
   ImagePlus,
+  Images,
   Layers,
+  Lock,
   Magnet,
   Menu,
   Moon,
   MousePointer,
+  Move,
   PenTool,
   PlusSquare,
   Receipt,
@@ -36,10 +43,11 @@ import {
   Trash2,
   Undo2,
   Upload,
+  Wallet,
   Wrench,
   X,
 } from 'lucide-react';
-import { formatDzd } from '../data/algeriaMarketPrices';
+import { formatDzd, formatMillionCentimes } from '../data/algeriaMarketPrices';
 import { BRAND_LOGO_URL } from '../utils/assets';
 import { getFreePromoDaysRemaining, isFreePromoMonthActive } from '../utils/authStore';
 import {
@@ -51,17 +59,35 @@ import {
   StyleOrigin,
   WALL_COLOR_SWATCHES,
   computeFloorPlanMetrics,
+  computeFurnitureTotalCostDzd,
 } from '../data/catalog';
+import {
+  analyzeRoomWalls,
+  deleteRoomWithWalls,
+  duplicateRoomCascade,
+  getWallLength,
+  groupOrEnsureRoomWalls,
+  moveRoomCascade,
+  resizeRoomWithWalls,
+  setWallLengthPreservingAngle,
+  updateRoomGroupedWalls,
+} from '../utils/roomWallUtils';
+import {
+  computePlanStructureMetrics,
+  generateAutoColumnsAndBeams,
+} from '../utils/structureUtils';
 import {
   DrawingSpacePreset,
   EditorTool,
   FloorPlanData,
   FurnitureCategory,
   FurnitureItem,
+  ProjectShowcaseImage,
   Room,
   RoomFloorStyle,
   SelectionTarget,
   SketchUnderlayConfig,
+  StructuralColumn,
   UnitType,
   ViewMode,
   Wall,
@@ -85,6 +111,7 @@ interface StudioWorkspaceProps {
   isSignedIn: boolean;
   isGuestSession?: boolean;
   isUserProActive?: boolean;
+  isAiArProActive?: boolean;
   onOpenProUpgrade?: () => void;
   onToggleTheme: () => void;
   onSaveProject: (title: string, plan: FloorPlanData) => Promise<void>;
@@ -100,6 +127,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   isSignedIn,
   isGuestSession = false,
   isUserProActive = false,
+  isAiArProActive = false,
   onOpenProUpgrade,
   onToggleTheme,
   onSaveProject,
@@ -120,6 +148,9 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   const [spaceMenuOpen, setSpaceMenuOpen] = useState(false);
   const [selection, setSelection] = useState<SelectionTarget>(null);
   const [snapEnabled, setSnapEnabled] = useState(true);
+  const [autoMeasureEnabled, setAutoMeasureEnabled] = useState(true);
+  const [showFurnitureCostWidget, setShowFurnitureCostWidget] = useState(true);
+  const [roomGroupFeedback, setRoomGroupFeedback] = useState<string | null>(null);
   const [sidebarTab, setSidebarTab] = useState<'catalog' | 'calculator'>('catalog');
   const [mobileSheet, setMobileSheet] = useState<
     null | 'tools' | 'catalog' | 'calculator' | 'inspector'
@@ -128,6 +159,8 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   const [show3DAreaDrawer, setShow3DAreaDrawer] = useState(false);
   const [showCostModal, setShowCostModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [focusShowcaseInInvoice, setFocusShowcaseInInvoice] = useState(false);
+  const [showcaseImages, setShowcaseImages] = useState<ProjectShowcaseImage[]>([]);
   const [showSketchModal, setShowSketchModal] = useState(false);
   const [showCameraArModal, setShowCameraArModal] = useState(false);
   const [sketchUnderlay, setSketchUnderlay] = useState<SketchUnderlayConfig | null>(
@@ -139,6 +172,8 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   const [useCatalogPrices, setUseCatalogPrices] = useState(true);
   const [catalogVisibleLimit, setCatalogVisibleLimit] = useState(36);
   const importFileRef = React.useRef<HTMLInputElement | null>(null);
+  const capture2DRef = React.useRef<(() => string | null) | null>(null);
+  const capture3DRef = React.useRef<(() => string | null) | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -152,6 +187,11 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   }, [selection, mobileSheet]);
 
   const metrics = useMemo(() => computeFloorPlanMetrics(floorPlan), [floorPlan]);
+  const structureMetrics = useMemo(() => computePlanStructureMetrics(floorPlan), [floorPlan]);
+  const furnitureCostSummary = useMemo(
+    () => computeFurnitureTotalCostDzd(floorPlan.furniture),
+    [floorPlan.furniture]
+  );
 
   const areaReport = useMemo(() => {
     const unitFactorArea = floorPlan.unit === 'ft' ? 10.7639 : 1;
@@ -334,10 +374,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
         furniture: floorPlan.furniture.filter((f) => f.id !== selection.id),
       });
     } else if (selection.kind === 'room') {
-      updateFloorPlan({
-        ...floorPlan,
-        rooms: floorPlan.rooms.filter((r) => r.id !== selection.id),
-      });
+      updateFloorPlan(deleteRoomWithWalls(floorPlan, selection.id, true), true);
     } else if (selection.kind === 'wall') {
       updateFloorPlan({
         ...floorPlan,
@@ -348,6 +385,16 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
       updateFloorPlan({
         ...floorPlan,
         openings: floorPlan.openings.filter((o) => o.id !== selection.id),
+      });
+    } else if (selection.kind === 'column') {
+      updateFloorPlan({
+        ...floorPlan,
+        columns: (floorPlan.columns || []).filter((c) => c.id !== selection.id),
+      });
+    } else if (selection.kind === 'beam') {
+      updateFloorPlan({
+        ...floorPlan,
+        beams: (floorPlan.beams || []).filter((b) => b.id !== selection.id),
       });
     }
     setSelection(null);
@@ -503,6 +550,22 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
     selection?.kind === 'furniture'
       ? floorPlan.furniture.find((f) => f.id === selection.id)
       : undefined;
+  const selectedColumn =
+    selection?.kind === 'column'
+      ? (floorPlan.columns || []).find((c) => c.id === selection.id)
+      : undefined;
+  const selectedBeam =
+    selection?.kind === 'beam'
+      ? (floorPlan.beams || []).find((b) => b.id === selection.id)
+      : undefined;
+  const selectedRoomWallsInfo = useMemo(
+    () => (selectedRoom ? analyzeRoomWalls(floorPlan, selectedRoom.id) : null),
+    [floorPlan, selectedRoom]
+  );
+  const selectedRoomMatchedWalls = useMemo(() => {
+    if (!selectedRoomWallsInfo) return [];
+    return floorPlan.walls.filter((w) => selectedRoomWallsInfo.matched.allMatchedIds.has(w.id));
+  }, [floorPlan.walls, selectedRoomWallsInfo]);
 
   return (
     <div className="flex flex-col h-[100dvh] w-full overflow-hidden bg-[#F7F6F2] dark:bg-[#111315] text-slate-900 dark:text-slate-100">
@@ -667,7 +730,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             className="hidden lg:inline-flex items-center gap-1 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/30 px-2.5 py-1.5 text-xs font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors whitespace-nowrap shrink-0"
             title="إدراج وتحويل تصميم من ورقة مرسومة (برو)"
           >
-            <ImagePlus className="w-3.5 h-3.5" />
+            {isAiArProActive ? <ImagePlus className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
             <span>من ورقة (برو)</span>
           </button>
 
@@ -677,18 +740,34 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             className="hidden lg:inline-flex items-center gap-1 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors whitespace-nowrap shrink-0"
             title="معاينة المخطط 2D في الفضاء الحقيقي بالكاميرا (برو)"
           >
-            <Camera className="w-3.5 h-3.5" />
+            {isAiArProActive ? <Camera className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
             <span>كاميرا 2D (برو)</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setShowInvoiceModal(true)}
+            onClick={() => {
+              setFocusShowcaseInInvoice(true);
+              setShowInvoiceModal(true);
+            }}
+            className="hidden lg:inline-flex items-center gap-1 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors whitespace-nowrap shrink-0"
+            title="التقاط واختيار صور المشروع للعرض على الزبون بفاتورة تقديرية"
+          >
+            <Images className="w-3.5 h-3.5" />
+            <span>صور للزبون</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFocusShowcaseInInvoice(false);
+              setShowInvoiceModal(true);
+            }}
             className="hidden lg:inline-flex items-center gap-1 rounded-lg border border-amber-300 dark:border-amber-700/70 bg-amber-50/80 dark:bg-amber-950/30 px-2.5 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors whitespace-nowrap shrink-0"
-            title="عرض وتصدير فاتورة الحسابات والمقايسة"
+            title="عرض وتصدير الفاتورة التقديرية وصور المشروع"
           >
             <Receipt className="w-3.5 h-3.5" />
-            <span>فاتورة الحسابات</span>
+            <span>فاتورة تقديرية</span>
           </button>
 
           <button
@@ -793,7 +872,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
               }}
               className="w-full flex items-center gap-2 rounded-lg px-3 py-2.5 font-semibold text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 text-right"
             >
-              <ImagePlus className="w-4 h-4" />
+              {isAiArProActive ? <ImagePlus className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
               <span>تصميم من ورقة مرسومة (برو)</span>
             </button>
 
@@ -805,7 +884,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
               }}
               className="w-full flex items-center gap-2 rounded-lg px-3 py-2.5 font-semibold text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-right"
             >
-              <Camera className="w-4 h-4" />
+              {isAiArProActive ? <Camera className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
               <span>معاينة المخطط بالكاميرا (برو)</span>
             </button>
 
@@ -813,12 +892,26 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
               type="button"
               onClick={() => {
                 setMobileMenuOpen(false);
+                setFocusShowcaseInInvoice(true);
+                setShowInvoiceModal(true);
+              }}
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2.5 font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-right"
+            >
+              <Images className="w-4 h-4" />
+              <span>تصدير صور المشروع للزبون</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setFocusShowcaseInInvoice(false);
                 setShowInvoiceModal(true);
               }}
               className="w-full flex items-center gap-2 rounded-lg px-3 py-2.5 font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-right"
             >
               <Receipt className="w-4 h-4" />
-              <span>فاتورة الحسابات الشاملة PDF</span>
+              <span>فاتورة تقديرية وصور المشروع PDF</span>
             </button>
 
             <button
@@ -890,7 +983,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
           <div className="inline-flex items-center gap-1.5 sm:gap-2 text-emerald-900 dark:text-emerald-200 font-medium">
             <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>
-              الشهر المجاني المفتوح: جميع ميزات برو (من ورقة، كاميرا 2D، و200 تصميم) متاحة مجاناً للجميع — متبقي {getFreePromoDaysRemaining()} يوماً حتى 16 ديسمبر 2026.
+              الشهر المجاني المفتوح: 200 تصميم جزائري وأدوات الرسم ومشاريع غير محدودة متاحة مجاناً حتى 16 ديسمبر 2026 (يستثنى التصميم من ورقة، الواقع المعزز، والذكاء الاصطناعي الحصرية لنسخة برو).
             </span>
           </div>
         </div>
@@ -924,23 +1017,38 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
           <aside className="hidden lg:flex w-72 shrink-0 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181B20] flex-col min-h-0 z-20">
             {/* Drafting Tools Section */}
             <div className="p-2.5 border-b border-slate-200 dark:border-slate-800 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  أدوات الرسم الهندسي
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
+                  أدوات الرسم
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setSnapEnabled((s) => !s)}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
-                    snapEnabled
-                      ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300'
-                      : 'text-slate-500 dark:text-slate-400'
-                  }`}
-                  title="تفعيل أو إيقاف المحاذاة التلقائية للشبكة"
-                >
-                  <Magnet className="w-3 h-3" />
-                  <span>محاذاة</span>
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setAutoMeasureEnabled((v) => !v)}
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                      autoMeasureEnabled
+                        ? 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
+                        : 'text-slate-500 dark:text-slate-400 border border-transparent'
+                    }`}
+                    title="إظهار أو إخفاء القياس التلقائي للأبعاد على الجدران المختارة وأثناء الرسم"
+                  >
+                    <Ruler className="w-3 h-3" />
+                    <span>القياس التلقائي</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSnapEnabled((s) => !s)}
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                      snapEnabled
+                        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                        : 'text-slate-500 dark:text-slate-400 border border-transparent'
+                    }`}
+                    title="تفعيل أو إيقاف المحاذاة التلقائية للشبكة"
+                  >
+                    <Magnet className="w-3 h-3" />
+                    <span>محاذاة</span>
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-6 gap-1">
                 {(
@@ -972,6 +1080,96 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                     <span>{label}</span>
                   </button>
                 ))}
+              </div>
+
+              {/* Optional Structural Columns & Beams (البيليات والسوانتر) */}
+              <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800/80 space-y-1.5">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                    <Building2 className="w-3 h-3 text-slate-500" />
+                    <span>الأعمدة والسوانتر (اختياري)</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateFloorPlan({
+                        ...floorPlan,
+                        showStructureLayer: floorPlan.showStructureLayer === false ? true : false,
+                      })
+                    }
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                      floorPlan.showStructureLayer !== false
+                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                    title="إظهار أو إخفاء طبقة الأعمدة والسوانتر"
+                  >
+                    {floorPlan.showStructureLayer !== false ? (
+                      <Eye className="w-3 h-3" />
+                    ) : (
+                      <EyeOff className="w-3 h-3" />
+                    )}
+                    <span>{floorPlan.showStructureLayer !== false ? 'مرئي' : 'مخفي'}</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTool('column');
+                      setSpaceMenuOpen(false);
+                    }}
+                    className={`py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-colors ${
+                      activeTool === 'column'
+                        ? 'bg-slate-800 dark:bg-blue-600 text-white shadow-sm'
+                        : 'bg-slate-50 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    + بيلي (عمود)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTool('beam');
+                      setSpaceMenuOpen(false);
+                    }}
+                    className={`py-1 px-1.5 rounded-lg text-[10px] font-semibold transition-colors ${
+                      activeTool === 'beam'
+                        ? 'bg-slate-800 dark:bg-blue-600 text-white shadow-sm'
+                        : 'bg-slate-50 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    + سانتر
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const generated = generateAutoColumnsAndBeams(floorPlan);
+                      updateFloorPlan(
+                        {
+                          ...floorPlan,
+                          columns: generated.columns,
+                          beams: generated.beams,
+                          showStructureLayer: true,
+                        },
+                        true
+                      );
+                    }}
+                    className="py-1 px-1.5 rounded-lg border border-blue-200 dark:border-blue-800/80 bg-blue-50/70 dark:bg-blue-950/40 hover:bg-blue-100 text-[10px] font-semibold text-blue-700 dark:text-blue-300 transition-colors"
+                    title="توزيع تلقائي لأعمدة البيلي والسوانتر على زوايا الغرف والجدران"
+                  >
+                    توزيع تلقائي
+                  </button>
+                </div>
+                {(structureMetrics.columnsCount > 0 || structureMetrics.beamsCount > 0) && (
+                  <div className="text-[10px] font-mono-nums text-slate-500 dark:text-slate-400 flex items-center justify-between px-0.5">
+                    <span>{structureMetrics.columnsCount} بيلي</span>
+                    <span>
+                      {structureMetrics.beamsCount} سانتر ({structureMetrics.totalBeamsLengthM.toFixed(1)} م)
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Space Type Dropdown (Auto-expands when room tool is active; auto-hides when inactive) */}
@@ -1203,6 +1401,23 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                   </div>
                 </div>
 
+                {/* Estimated Furniture Cost Card */}
+                <div className="rounded-lg border border-emerald-200 dark:border-emerald-900/70 bg-emerald-50/70 dark:bg-emerald-950/30 p-3 space-y-1">
+                  <div className="flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200 font-semibold">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Wallet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>تكلفة الأثاث التقديرية</span>
+                    </span>
+                    <span className="font-mono-nums">{furnitureCostSummary.totalCount} قطعة</span>
+                  </div>
+                  <div className="text-lg font-bold font-mono-nums text-emerald-950 dark:text-emerald-100">
+                    {formatDzd(furnitureCostSummary.totalDzd)}
+                  </div>
+                  <div className="text-[11px] font-mono-nums text-emerald-800/85 dark:text-emerald-300/85">
+                    {formatMillionCentimes(furnitureCostSummary.totalDzd)}
+                  </div>
+                </div>
+
                 {/* Structural Wall & Paint Area Metrics */}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-2.5">
@@ -1361,6 +1576,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                 roomPreset={activeSpacePreset}
                 selection={selection}
                 snapEnabled={snapEnabled}
+                autoMeasureEnabled={autoMeasureEnabled}
                 isDarkTheme={isDarkTheme}
                 sketchUnderlay={sketchUnderlay}
                 onSelect={setSelection}
@@ -1369,7 +1585,57 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                   setActiveTool('select');
                   setSpaceMenuOpen(false);
                 }}
+                onCaptureReady={(fn) => {
+                  capture2DRef.current = fn;
+                }}
               />
+
+              {/* Compact Floating Furniture Cost Dashboard */}
+              <div className="absolute top-3 left-3 z-20 max-w-[230px]">
+                {showFurnitureCostWidget ? (
+                  <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/80 bg-white/95 dark:bg-slate-900/95 shadow-md p-2.5 space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1 font-bold text-slate-800 dark:text-slate-100 text-[11px]">
+                        <Wallet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>تكلفة الأثاث التقديرية</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowFurnitureCostWidget(false)}
+                        aria-label="طي لوحة التكلفة"
+                        className="p-0.5 rounded text-slate-400 hover:text-slate-700 dark:hover:text-white"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="font-mono-nums font-bold text-sm text-emerald-700 dark:text-emerald-300">
+                      {formatDzd(furnitureCostSummary.totalDzd)}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 text-[10px] font-mono-nums text-slate-500 dark:text-slate-400">
+                      <span>{formatMillionCentimes(furnitureCostSummary.totalDzd)}</span>
+                      <span>{furnitureCostSummary.totalCount} قطعة</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowInvoiceModal(true)}
+                      className="w-full inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white py-1 px-2 text-[10px] font-semibold transition-colors"
+                    >
+                      <Receipt className="w-3 h-3" />
+                      <span>عرض الفاتورة التفصيلية</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowFurnitureCostWidget(true)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-white/95 dark:bg-slate-900/95 px-2.5 py-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 shadow-sm hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
+                    title="إظهار لوحة التكلفة التقديرية للأثاث"
+                  >
+                    <Wallet className="w-3.5 h-3.5" />
+                    <span className="font-mono-nums">{formatDzd(furnitureCostSummary.totalDzd)}</span>
+                  </button>
+                )}
+              </div>
 
               {/* Compact Underlay Controls when a Paper Sketch Underlay is active */}
               {sketchUnderlay && (
@@ -1427,6 +1693,9 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                 selection={selection}
                 onSelect={setSelection}
                 isDarkTheme={isDarkTheme}
+                onCaptureReady={(fn) => {
+                  capture3DRef.current = fn;
+                }}
               />
             </div>
           )}
@@ -1447,6 +1716,8 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                           ? 'خصائص القوس المعماري'
                           : 'خصائص النافذة')}
                     {selectedFurniture && selectedFurniture.name}
+                    {selectedColumn && `خصائص العمود (${selectedColumn.label || 'بيلي'})`}
+                    {selectedBeam && `خصائص السانتر (${selectedBeam.label || 'حزام'})`}
                   </span>
                 </span>
                 <button
@@ -1487,18 +1758,18 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                       <input
                         type="number"
                         step={0.25}
-                        min={1}
+                        min={1.5}
                         max={30}
                         value={selectedRoom.width}
                         onChange={(e) =>
-                          updateFloorPlan({
-                            ...floorPlan,
-                            rooms: floorPlan.rooms.map((r) =>
-                              r.id === selectedRoom.id
-                                ? { ...r, width: Math.max(1, Number(e.target.value) || 1) }
-                                : r
-                            ),
-                          })
+                          updateFloorPlan(
+                            resizeRoomWithWalls(
+                              floorPlan,
+                              selectedRoom.id,
+                              Math.max(1.5, Number(e.target.value) || 1.5),
+                              selectedRoom.depth
+                            )
+                          )
                         }
                         className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums"
                       />
@@ -1510,18 +1781,18 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                       <input
                         type="number"
                         step={0.25}
-                        min={1}
+                        min={1.5}
                         max={30}
                         value={selectedRoom.depth}
                         onChange={(e) =>
-                          updateFloorPlan({
-                            ...floorPlan,
-                            rooms: floorPlan.rooms.map((r) =>
-                              r.id === selectedRoom.id
-                                ? { ...r, depth: Math.max(1, Number(e.target.value) || 1) }
-                                : r
-                            ),
-                          })
+                          updateFloorPlan(
+                            resizeRoomWithWalls(
+                              floorPlan,
+                              selectedRoom.id,
+                              selectedRoom.width,
+                              Math.max(1.5, Number(e.target.value) || 1.5)
+                            )
+                          )
                         }
                         className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums"
                       />
@@ -1537,6 +1808,199 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                       {areaReport.areaUnitLabel}
                     </span>
                   </div>
+
+                  {/* Full Room Move (Walls + Interior Furniture) */}
+                  <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-2.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1 font-semibold text-slate-700 dark:text-slate-200">
+                        <Move className="w-3.5 h-3.5 text-blue-600" />
+                        <span>تحريك الغرفة كاملة (0.5م)</span>
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateFloorPlan(
+                            moveRoomCascade(floorPlan, selectedRoom.id, selectedRoom.x + 0.5, selectedRoom.z, true),
+                            true
+                          )
+                        }
+                        className="inline-flex items-center justify-center gap-0.5 rounded border border-slate-200 dark:border-slate-700 py-1 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        title="تحريك لليمين"
+                      >
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateFloorPlan(
+                            moveRoomCascade(floorPlan, selectedRoom.id, selectedRoom.x - 0.5, selectedRoom.z, true),
+                            true
+                          )
+                        }
+                        className="inline-flex items-center justify-center gap-0.5 rounded border border-slate-200 dark:border-slate-700 py-1 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        title="تحريك لليسار"
+                      >
+                        <ArrowLeft className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateFloorPlan(
+                            moveRoomCascade(floorPlan, selectedRoom.id, selectedRoom.x, selectedRoom.z - 0.5, true),
+                            true
+                          )
+                        }
+                        className="inline-flex items-center justify-center gap-0.5 rounded border border-slate-200 dark:border-slate-700 py-1 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        title="تحريك للأعلى"
+                      >
+                        <ArrowUp className="w-3 h-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateFloorPlan(
+                            moveRoomCascade(floorPlan, selectedRoom.id, selectedRoom.x, selectedRoom.z + 0.5, true),
+                            true
+                          )
+                        }
+                        className="inline-flex items-center justify-center gap-0.5 rounded border border-slate-200 dark:border-slate-700 py-1 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        title="تحريك للأسفل"
+                      >
+                        <ArrowDown className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Group Room Walls & Bulk Edit */}
+                  {selectedRoomWallsInfo && (
+                    <div className="rounded-lg border border-blue-200 dark:border-blue-900/70 bg-blue-50/40 dark:bg-blue-950/20 p-2.5 space-y-2">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-semibold text-blue-900 dark:text-blue-200">
+                          حوائط الغرفة المجمّعة ({selectedRoomMatchedWalls.length}/4)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const grouped = groupOrEnsureRoomWalls(floorPlan, selectedRoom.id);
+                            updateFloorPlan(grouped.plan, true);
+                            setRoomGroupFeedback('تم جمع وتوحيد حوائط الغرفة الأربعة');
+                            setTimeout(() => setRoomGroupFeedback(null), 2400);
+                          }}
+                          className="rounded-md bg-blue-600 hover:bg-blue-700 px-2 py-1 text-[10px] font-semibold text-white whitespace-nowrap"
+                        >
+                          جمع وتوحيد الحوائط
+                        </button>
+                      </div>
+                      {roomGroupFeedback && (
+                        <div className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+                          {roomGroupFeedback}
+                        </div>
+                      )}
+                      {selectedRoomMatchedWalls.length > 0 && (
+                        <>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <div>
+                              <label className="block text-[10px] text-slate-600 dark:text-slate-300 mb-0.5">
+                                ارتفاع الحوائط (m)
+                              </label>
+                              <input
+                                type="number"
+                                step={0.1}
+                                min={2}
+                                max={5}
+                                value={selectedRoomMatchedWalls[0]?.height || floorPlan.wallHeight}
+                                onChange={(e) =>
+                                  updateFloorPlan(
+                                    updateRoomGroupedWalls(floorPlan, selectedRoom.id, {
+                                      height: Math.max(2, Number(e.target.value) || 2.8),
+                                    })
+                                  )
+                                }
+                                className="w-full rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 font-mono-nums text-[11px]"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-slate-600 dark:text-slate-300 mb-0.5">
+                                سماكة الحوائط (m)
+                              </label>
+                              <input
+                                type="number"
+                                step={0.02}
+                                min={0.08}
+                                max={0.5}
+                                value={selectedRoomMatchedWalls[0]?.thickness || 0.16}
+                                onChange={(e) =>
+                                  updateFloorPlan(
+                                    updateRoomGroupedWalls(floorPlan, selectedRoom.id, {
+                                      thickness: Math.max(0.08, Number(e.target.value) || 0.16),
+                                    })
+                                  )
+                                }
+                                className="w-full rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 font-mono-nums text-[11px]"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1 pt-0.5">
+                            {WALL_COLOR_SWATCHES.slice(0, 6).map((sw) => (
+                              <button
+                                key={sw.color}
+                                type="button"
+                                onClick={() =>
+                                  updateFloorPlan(
+                                    updateRoomGroupedWalls(floorPlan, selectedRoom.id, { color: sw.color })
+                                  )
+                                }
+                                className="w-5 h-5 rounded border border-slate-300 dark:border-slate-600"
+                                style={{ backgroundColor: sw.color }}
+                                title={`تطبيق طلاء ${sw.label} على حوائط الغرفة`}
+                              />
+                            ))}
+                          </div>
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {selectedRoomMatchedWalls.map((w, idx) => (
+                              <button
+                                key={w.id}
+                                type="button"
+                                onClick={() => setSelection({ kind: 'wall', id: w.id })}
+                                className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[10px] font-mono-nums hover:border-blue-500"
+                              >
+                                حائط {idx + 1} · {getWallLength(w).toFixed(2)}m
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Duplicate & Delete Full Room */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const res = duplicateRoomCascade(floorPlan, selectedRoom.id);
+                        if (res) {
+                          updateFloorPlan(res.plan, true);
+                          setSelection({ kind: 'room', id: res.newRoomId });
+                        }
+                      }}
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 py-1.5 text-[11px] font-semibold hover:bg-slate-50 dark:hover:bg-slate-800"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-blue-600" />
+                      <span>تكرار الغرفة</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={deleteSelection}
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 py-1.5 text-[11px] font-semibold text-red-700 dark:text-red-400 hover:bg-red-100"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>حذف الغرفة</span>
+                    </button>
+                  </div>
+
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <label className="block font-medium text-slate-600 dark:text-slate-300">
@@ -1631,6 +2095,90 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
               {/* Wall Inspector */}
               {selectedWall && (
                 <div className="space-y-4 text-xs">
+                  {/* Dedicated Wall Length Control */}
+                  <div className="rounded-lg border border-blue-200 dark:border-blue-900/70 bg-blue-50/50 dark:bg-blue-950/20 p-2.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="font-semibold text-blue-900 dark:text-blue-200 inline-flex items-center gap-1">
+                        <Ruler className="w-3.5 h-3.5 text-blue-600" />
+                        <span>طول الحائط (m)</span>
+                      </label>
+                      <span className="font-mono-nums font-bold text-blue-700 dark:text-blue-300">
+                        {getWallLength(selectedWall).toFixed(2)} m
+                      </span>
+                    </div>
+                    <input
+                      type="number"
+                      step={0.1}
+                      min={0.5}
+                      max={40}
+                      value={Number(getWallLength(selectedWall).toFixed(2))}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (!Number.isFinite(val) || val < 0.5) return;
+                        updateFloorPlan({
+                          ...floorPlan,
+                          walls: floorPlan.walls.map((w) =>
+                            w.id === selectedWall.id ? setWallLengthPreservingAngle(w, val) : w
+                          ),
+                        });
+                      }}
+                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums"
+                    />
+                    <div className="grid grid-cols-6 gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateFloorPlan({
+                            ...floorPlan,
+                            walls: floorPlan.walls.map((w) =>
+                              w.id === selectedWall.id
+                                ? setWallLengthPreservingAngle(w, Math.max(0.5, getWallLength(w) - 0.5))
+                                : w
+                            ),
+                          })
+                        }
+                        className="rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-1 text-[10px] font-mono-nums font-semibold hover:border-blue-500"
+                      >
+                        -0.5
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateFloorPlan({
+                            ...floorPlan,
+                            walls: floorPlan.walls.map((w) =>
+                              w.id === selectedWall.id
+                                ? setWallLengthPreservingAngle(w, getWallLength(w) + 0.5)
+                                : w
+                            ),
+                          })
+                        }
+                        className="rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-1 text-[10px] font-mono-nums font-semibold hover:border-blue-500"
+                      >
+                        +0.5
+                      </button>
+                      {[2, 3, 4, 5].map((presetLen) => (
+                        <button
+                          key={presetLen}
+                          type="button"
+                          onClick={() =>
+                            updateFloorPlan({
+                              ...floorPlan,
+                              walls: floorPlan.walls.map((w) =>
+                                w.id === selectedWall.id
+                                  ? setWallLengthPreservingAngle(w, presetLen)
+                                  : w
+                              ),
+                            })
+                          }
+                          className="rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-1 text-[10px] font-mono-nums font-semibold hover:border-blue-500"
+                        >
+                          {presetLen}م
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
@@ -2080,6 +2628,199 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                 </div>
               )}
 
+              {/* Structural Column Inspector */}
+              {selectedColumn && (
+                <div className="space-y-4 text-xs">
+                  <div>
+                    <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                      رمز العمود (بيلي)
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedColumn.label || ''}
+                      onChange={(e) =>
+                        updateFloorPlan({
+                          ...floorPlan,
+                          columns: (floorPlan.columns || []).map((c) =>
+                            c.id === selectedColumn.id ? { ...c, label: e.target.value } : c
+                          ),
+                        })
+                      }
+                      placeholder="P1"
+                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-1.5"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                        العرض (m)
+                      </label>
+                      <input
+                        type="number"
+                        step={0.05}
+                        min={0.2}
+                        max={1.2}
+                        value={selectedColumn.width}
+                        onChange={(e) =>
+                          updateFloorPlan({
+                            ...floorPlan,
+                            columns: (floorPlan.columns || []).map((c) =>
+                              c.id === selectedColumn.id
+                                ? { ...c, width: Math.max(0.2, Number(e.target.value) || 0.3) }
+                                : c
+                            ),
+                          })
+                        }
+                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 py-1 font-mono-nums"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                        العمق (m)
+                      </label>
+                      <input
+                        type="number"
+                        step={0.05}
+                        min={0.2}
+                        max={1.2}
+                        value={selectedColumn.depth}
+                        onChange={(e) =>
+                          updateFloorPlan({
+                            ...floorPlan,
+                            columns: (floorPlan.columns || []).map((c) =>
+                              c.id === selectedColumn.id
+                                ? { ...c, depth: Math.max(0.2, Number(e.target.value) || 0.3) }
+                                : c
+                            ),
+                          })
+                        }
+                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 py-1 font-mono-nums"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                        الارتفاع (m)
+                      </label>
+                      <input
+                        type="number"
+                        step={0.1}
+                        min={2}
+                        max={6}
+                        value={selectedColumn.height}
+                        onChange={(e) =>
+                          updateFloorPlan({
+                            ...floorPlan,
+                            columns: (floorPlan.columns || []).map((c) =>
+                              c.id === selectedColumn.id
+                                ? { ...c, height: Math.max(2, Number(e.target.value) || 2.8) }
+                                : c
+                            ),
+                          })
+                        }
+                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 py-1 font-mono-nums"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cols = floorPlan.columns || [];
+                      const copy: StructuralColumn = {
+                        ...selectedColumn,
+                        id: `col_${Date.now()}`,
+                        label: `P${cols.length + 1}`,
+                        x: Number((selectedColumn.x + 1).toFixed(2)),
+                      };
+                      updateFloorPlan({ ...floorPlan, columns: [...cols, copy] }, true);
+                      setSelection({ kind: 'column', id: copy.id });
+                    }}
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 py-2 font-medium hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>تكرار العمود</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Structural Beam Inspector */}
+              {selectedBeam && (
+                <div className="space-y-4 text-xs">
+                  <div>
+                    <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                      تسمية السانتر
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedBeam.label || ''}
+                      onChange={(e) =>
+                        updateFloorPlan({
+                          ...floorPlan,
+                          beams: (floorPlan.beams || []).map((b) =>
+                            b.id === selectedBeam.id ? { ...b, label: e.target.value } : b
+                          ),
+                        })
+                      }
+                      placeholder="S1"
+                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-1.5"
+                    />
+                  </div>
+                  <div className="rounded-lg border border-blue-200 dark:border-blue-900/70 bg-blue-50/50 dark:bg-blue-950/20 p-2.5 flex items-center justify-between">
+                    <span className="font-semibold text-blue-900 dark:text-blue-200">الطول الحالي</span>
+                    <span className="font-mono-nums font-bold text-blue-700 dark:text-blue-300">
+                      {Math.hypot(selectedBeam.x2 - selectedBeam.x1, selectedBeam.z2 - selectedBeam.z1).toFixed(2)} m
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                        العرض (m)
+                      </label>
+                      <input
+                        type="number"
+                        step={0.05}
+                        min={0.15}
+                        max={0.8}
+                        value={selectedBeam.width}
+                        onChange={(e) =>
+                          updateFloorPlan({
+                            ...floorPlan,
+                            beams: (floorPlan.beams || []).map((b) =>
+                              b.id === selectedBeam.id
+                                ? { ...b, width: Math.max(0.15, Number(e.target.value) || 0.25) }
+                                : b
+                            ),
+                          })
+                        }
+                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 py-1 font-mono-nums"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                        السقوط/الارتفاع (m)
+                      </label>
+                      <input
+                        type="number"
+                        step={0.05}
+                        min={0.2}
+                        max={0.9}
+                        value={selectedBeam.height}
+                        onChange={(e) =>
+                          updateFloorPlan({
+                            ...floorPlan,
+                            beams: (floorPlan.beams || []).map((b) =>
+                              b.id === selectedBeam.id
+                                ? { ...b, height: Math.max(0.2, Number(e.target.value) || 0.35) }
+                                : b
+                            ),
+                          })
+                        }
+                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 py-1 font-mono-nums"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Delete Action */}
               <div className="mt-auto pt-4 border-t border-slate-200 dark:border-slate-800">
                 <button
@@ -2231,6 +2972,8 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                 {mobileSheet === 'inspector' &&
                   (selectedRoom?.name ||
                     selectedFurniture?.name ||
+                    (selectedColumn ? `خصائص العمود (${selectedColumn.label || 'بيلي'})` : null) ||
+                    (selectedBeam ? `خصائص السانتر (${selectedBeam.label || 'حزام'})` : null) ||
                     (selectedOpening
                       ? selectedOpening.type === 'door'
                         ? 'خصائص الباب'
@@ -2287,6 +3030,77 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                         <span>{label}</span>
                       </button>
                     ))}
+                  </div>
+
+                  {/* Mobile Structural Columns & Beams */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                        <span>أعمدة البناء (البيليات والسوانتر · اختياري)</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateFloorPlan({
+                            ...floorPlan,
+                            showStructureLayer: floorPlan.showStructureLayer === false ? true : false,
+                          })
+                        }
+                        className="text-[11px] font-semibold text-blue-600 dark:text-blue-400"
+                      >
+                        {floorPlan.showStructureLayer !== false ? 'إخفاء الطبقة' : 'إظهار الطبقة'}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTool('column');
+                          setMobileSheet(null);
+                        }}
+                        className={`py-2 px-2 rounded-xl text-xs font-semibold ${
+                          activeTool === 'column'
+                            ? 'bg-slate-800 dark:bg-blue-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+                        }`}
+                      >
+                        + بيلي (عمود)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTool('beam');
+                          setMobileSheet(null);
+                        }}
+                        className={`py-2 px-2 rounded-xl text-xs font-semibold ${
+                          activeTool === 'beam'
+                            ? 'bg-slate-800 dark:bg-blue-600 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+                        }`}
+                      >
+                        + سانتر
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const generated = generateAutoColumnsAndBeams(floorPlan);
+                          updateFloorPlan(
+                            {
+                              ...floorPlan,
+                              columns: generated.columns,
+                              beams: generated.beams,
+                              showStructureLayer: true,
+                            },
+                            true
+                          );
+                          setMobileSheet(null);
+                        }}
+                        className="py-2 px-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/30 text-xs font-semibold text-blue-700 dark:text-blue-300"
+                      >
+                        توزيع تلقائي
+                      </button>
+                    </div>
                   </div>
 
                   {/* Mobile Space Type Dropdown (Auto-expands when room tool is active) */}
@@ -2363,23 +3177,37 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                     }}
                     className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 text-xs font-semibold text-indigo-700 dark:text-indigo-300"
                   >
-                    <Camera className="w-4 h-4" />
+                    {isAiArProActive ? <Camera className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                     <span>معاينة المخطط 2D في الفضاء الحقيقي بالكاميرا (برو)</span>
                   </button>
 
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                    <button
-                      type="button"
-                      onClick={() => setSnapEnabled((s) => !s)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border ${
-                        snapEnabled
-                          ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
-                          : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
-                      <Magnet className="w-4 h-4" />
-                      <span>{snapEnabled ? 'المحاذاة مفعّلة' : 'المحاذاة معطّلة'}</span>
-                    </button>
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setAutoMeasureEnabled((v) => !v)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-semibold border ${
+                          autoMeasureEnabled
+                            ? 'border-sky-600 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300'
+                            : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <Ruler className="w-3.5 h-3.5" />
+                        <span>القياس التلقائي</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSnapEnabled((s) => !s)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-2 rounded-lg text-xs font-semibold border ${
+                          snapEnabled
+                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
+                            : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        <Magnet className="w-3.5 h-3.5" />
+                        <span>محاذاة</span>
+                      </button>
+                    </div>
 
                     <div className="flex items-center gap-1.5">
                       <button
@@ -2501,6 +3329,21 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                     </div>
                   </div>
 
+                  <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/70 bg-emerald-50/70 dark:bg-emerald-950/30 p-3 flex items-center justify-between gap-2">
+                    <div>
+                      <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-900 dark:text-emerald-200">
+                        <Wallet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>تكلفة الأثاث التقديرية ({furnitureCostSummary.totalCount} قطعة)</span>
+                      </div>
+                      <div className="text-base font-bold font-mono-nums text-emerald-950 dark:text-emerald-100 mt-0.5">
+                        {formatDzd(furnitureCostSummary.totalDzd)}
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-mono-nums text-emerald-800/85 dark:text-emerald-300/85">
+                      {formatMillionCentimes(furnitureCostSummary.totalDzd)}
+                    </span>
+                  </div>
+
                   {areaReport.roomRows.length > 0 && (
                     <div className="divide-y divide-slate-200 dark:divide-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
                       {areaReport.roomRows.map((room) => (
@@ -2574,16 +3417,18 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                           <input
                             type="number"
                             step={0.25}
-                            min={1}
+                            min={1.5}
                             max={30}
                             value={selectedRoom.width}
                             onChange={(e) =>
-                              updateFloorPlan({
-                                ...floorPlan,
-                                rooms: floorPlan.rooms.map((r) =>
-                                  r.id === selectedRoom.id ? { ...r, width: Math.max(1, Number(e.target.value) || 1) } : r
-                                ),
-                              })
+                              updateFloorPlan(
+                                resizeRoomWithWalls(
+                                  floorPlan,
+                                  selectedRoom.id,
+                                  Math.max(1.5, Number(e.target.value) || 1.5),
+                                  selectedRoom.depth
+                                )
+                              )
                             }
                             className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2 font-mono-nums"
                           />
@@ -2593,21 +3438,133 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                           <input
                             type="number"
                             step={0.25}
-                            min={1}
+                            min={1.5}
                             max={30}
                             value={selectedRoom.depth}
                             onChange={(e) =>
-                              updateFloorPlan({
-                                ...floorPlan,
-                                rooms: floorPlan.rooms.map((r) =>
-                                  r.id === selectedRoom.id ? { ...r, depth: Math.max(1, Number(e.target.value) || 1) } : r
-                                ),
-                              })
+                              updateFloorPlan(
+                                resizeRoomWithWalls(
+                                  floorPlan,
+                                  selectedRoom.id,
+                                  selectedRoom.width,
+                                  Math.max(1.5, Number(e.target.value) || 1.5)
+                                )
+                              )
                             }
                             className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2 font-mono-nums"
                           />
                         </div>
                       </div>
+
+                      {/* Mobile Full Room Move & Group Walls */}
+                      <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-2.5 space-y-2">
+                        <div className="font-semibold text-slate-700 dark:text-slate-200 inline-flex items-center gap-1">
+                          <Move className="w-3.5 h-3.5 text-blue-600" />
+                          <span>تحريك الغرفة كاملة (0.5م)</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateFloorPlan(
+                                moveRoomCascade(floorPlan, selectedRoom.id, selectedRoom.x + 0.5, selectedRoom.z, true),
+                                true
+                              )
+                            }
+                            className="flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 py-1.5"
+                          >
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateFloorPlan(
+                                moveRoomCascade(floorPlan, selectedRoom.id, selectedRoom.x - 0.5, selectedRoom.z, true),
+                                true
+                              )
+                            }
+                            className="flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 py-1.5"
+                          >
+                            <ArrowLeft className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateFloorPlan(
+                                moveRoomCascade(floorPlan, selectedRoom.id, selectedRoom.x, selectedRoom.z - 0.5, true),
+                                true
+                              )
+                            }
+                            className="flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 py-1.5"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateFloorPlan(
+                                moveRoomCascade(floorPlan, selectedRoom.id, selectedRoom.x, selectedRoom.z + 0.5, true),
+                                true
+                              )
+                            }
+                            className="flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 py-1.5"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {selectedRoomWallsInfo && (
+                        <div className="rounded-xl border border-blue-200 dark:border-blue-900/70 bg-blue-50/40 dark:bg-blue-950/20 p-2.5 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold text-blue-900 dark:text-blue-200">
+                              حوائط الغرفة المجمّعة ({selectedRoomMatchedWalls.length}/4)
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const grouped = groupOrEnsureRoomWalls(floorPlan, selectedRoom.id);
+                                updateFloorPlan(grouped.plan, true);
+                                setRoomGroupFeedback('تم جمع وتوحيد حوائط الغرفة');
+                                setTimeout(() => setRoomGroupFeedback(null), 2400);
+                              }}
+                              className="rounded-md bg-blue-600 text-white px-2.5 py-1 text-[11px] font-semibold"
+                            >
+                              جمع وتوحيد الحوائط
+                            </button>
+                          </div>
+                          {selectedRoomMatchedWalls.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {selectedRoomMatchedWalls.map((w, idx) => (
+                                <button
+                                  key={w.id}
+                                  type="button"
+                                  onClick={() => setSelection({ kind: 'wall', id: w.id })}
+                                  className="px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] font-mono-nums"
+                                >
+                                  حائط {idx + 1} · {getWallLength(w).toFixed(2)}m
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const res = duplicateRoomCascade(floorPlan, selectedRoom.id);
+                          if (res) {
+                            updateFloorPlan(res.plan, true);
+                            setSelection({ kind: 'room', id: res.newRoomId });
+                          }
+                        }}
+                        className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 py-2 font-semibold"
+                      >
+                        <Copy className="w-4 h-4 text-blue-600" />
+                        <span>تكرار الغرفة كاملة (مع الحوائط والأثاث)</span>
+                      </button>
+
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-slate-600 dark:text-slate-300">
@@ -2690,6 +3647,88 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
 
                   {selectedWall && (
                     <div className="space-y-3">
+                      <div className="rounded-xl border border-blue-200 dark:border-blue-900/70 bg-blue-50/50 dark:bg-blue-950/20 p-2.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="font-semibold text-blue-900 dark:text-blue-200">
+                            طول الحائط (m)
+                          </label>
+                          <span className="font-mono-nums font-bold text-blue-700 dark:text-blue-300">
+                            {getWallLength(selectedWall).toFixed(2)} m
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          step={0.1}
+                          min={0.5}
+                          max={40}
+                          value={Number(getWallLength(selectedWall).toFixed(2))}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            if (!Number.isFinite(val) || val < 0.5) return;
+                            updateFloorPlan({
+                              ...floorPlan,
+                              walls: floorPlan.walls.map((w) =>
+                                w.id === selectedWall.id ? setWallLengthPreservingAngle(w, val) : w
+                              ),
+                            });
+                          }}
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 font-mono-nums"
+                        />
+                        <div className="grid grid-cols-6 gap-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateFloorPlan({
+                                ...floorPlan,
+                                walls: floorPlan.walls.map((w) =>
+                                  w.id === selectedWall.id
+                                    ? setWallLengthPreservingAngle(w, Math.max(0.5, getWallLength(w) - 0.5))
+                                    : w
+                                ),
+                              })
+                            }
+                            className="rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-1.5 text-[11px] font-mono-nums font-semibold"
+                          >
+                            -0.5
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateFloorPlan({
+                                ...floorPlan,
+                                walls: floorPlan.walls.map((w) =>
+                                  w.id === selectedWall.id
+                                    ? setWallLengthPreservingAngle(w, getWallLength(w) + 0.5)
+                                    : w
+                                ),
+                              })
+                            }
+                            className="rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-1.5 text-[11px] font-mono-nums font-semibold"
+                          >
+                            +0.5
+                          </button>
+                          {[2, 3, 4, 5].map((presetLen) => (
+                            <button
+                              key={presetLen}
+                              type="button"
+                              onClick={() =>
+                                updateFloorPlan({
+                                  ...floorPlan,
+                                  walls: floorPlan.walls.map((w) =>
+                                    w.id === selectedWall.id
+                                      ? setWallLengthPreservingAngle(w, presetLen)
+                                      : w
+                                  ),
+                                })
+                              }
+                              className="rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-1.5 text-[11px] font-mono-nums font-semibold"
+                            >
+                              {presetLen}م
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <label className="block font-medium mb-1">الارتفاع (m)</label>
@@ -2992,6 +4031,159 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                     </div>
                   )}
 
+                  {selectedColumn && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block font-medium mb-1">رمز العمود (بيلي)</label>
+                        <input
+                          type="text"
+                          value={selectedColumn.label || ''}
+                          onChange={(e) =>
+                            updateFloorPlan({
+                              ...floorPlan,
+                              columns: (floorPlan.columns || []).map((c) =>
+                                c.id === selectedColumn.id ? { ...c, label: e.target.value } : c
+                              ),
+                            })
+                          }
+                          placeholder="P1"
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block font-medium mb-1">العرض (m)</label>
+                          <input
+                            type="number"
+                            step={0.05}
+                            min={0.2}
+                            max={1.2}
+                            value={selectedColumn.width}
+                            onChange={(e) =>
+                              updateFloorPlan({
+                                ...floorPlan,
+                                columns: (floorPlan.columns || []).map((c) =>
+                                  c.id === selectedColumn.id
+                                    ? { ...c, width: Math.max(0.2, Number(e.target.value) || 0.3) }
+                                    : c
+                                ),
+                              })
+                            }
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 py-1.5 font-mono-nums"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-medium mb-1">العمق (m)</label>
+                          <input
+                            type="number"
+                            step={0.05}
+                            min={0.2}
+                            max={1.2}
+                            value={selectedColumn.depth}
+                            onChange={(e) =>
+                              updateFloorPlan({
+                                ...floorPlan,
+                                columns: (floorPlan.columns || []).map((c) =>
+                                  c.id === selectedColumn.id
+                                    ? { ...c, depth: Math.max(0.2, Number(e.target.value) || 0.3) }
+                                    : c
+                                ),
+                              })
+                            }
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 py-1.5 font-mono-nums"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-medium mb-1">الارتفاع (m)</label>
+                          <input
+                            type="number"
+                            step={0.1}
+                            min={2}
+                            max={6}
+                            value={selectedColumn.height}
+                            onChange={(e) =>
+                              updateFloorPlan({
+                                ...floorPlan,
+                                columns: (floorPlan.columns || []).map((c) =>
+                                  c.id === selectedColumn.id
+                                    ? { ...c, height: Math.max(2, Number(e.target.value) || 2.8) }
+                                    : c
+                                ),
+                              })
+                            }
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 py-1.5 font-mono-nums"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedBeam && (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block font-medium mb-1">تسمية السانتر</label>
+                        <input
+                          type="text"
+                          value={selectedBeam.label || ''}
+                          onChange={(e) =>
+                            updateFloorPlan({
+                              ...floorPlan,
+                              beams: (floorPlan.beams || []).map((b) =>
+                                b.id === selectedBeam.id ? { ...b, label: e.target.value } : b
+                              ),
+                            })
+                          }
+                          placeholder="S1"
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block font-medium mb-1">العرض (m)</label>
+                          <input
+                            type="number"
+                            step={0.05}
+                            min={0.15}
+                            max={0.8}
+                            value={selectedBeam.width}
+                            onChange={(e) =>
+                              updateFloorPlan({
+                                ...floorPlan,
+                                beams: (floorPlan.beams || []).map((b) =>
+                                  b.id === selectedBeam.id
+                                    ? { ...b, width: Math.max(0.15, Number(e.target.value) || 0.25) }
+                                    : b
+                                ),
+                              })
+                            }
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 py-1.5 font-mono-nums"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-medium mb-1">الارتفاع (m)</label>
+                          <input
+                            type="number"
+                            step={0.05}
+                            min={0.2}
+                            max={0.9}
+                            value={selectedBeam.height}
+                            onChange={(e) =>
+                              updateFloorPlan({
+                                ...floorPlan,
+                                beams: (floorPlan.beams || []).map((b) =>
+                                  b.id === selectedBeam.id
+                                    ? { ...b, height: Math.max(0.2, Number(e.target.value) || 0.35) }
+                                    : b
+                                ),
+                              })
+                            }
+                            className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 py-1.5 font-mono-nums"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => {
@@ -3034,18 +4226,25 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             </div>
             <AlgeriaCostCalculator
               compactModal
+              allowAiLiveSync={isAiArProActive}
+              onOpenProUpgrade={() => {
+                setShowCostModal(false);
+                onOpenProUpgrade?.();
+              }}
               linkedPlan={{
                 title,
                 floorAreaSqm: Math.max(15, areaReport.totalAreaSqm),
                 wallLengthM: Math.max(10, areaReport.grossWallLengthM),
                 wallHeightM: floorPlan.wallHeight || 2.8,
+                columnsCount: structureMetrics.columnsCount,
+                beamsLengthM: structureMetrics.totalBeamsLengthM,
               }}
             />
           </div>
         </div>
       )}
 
-      {/* Project Invoice Modal (Furniture optional prices + Algerian Construction BOQ + Custom items) */}
+      {/* Project Invoice Modal (Furniture optional prices + Algerian Construction BOQ + Custom items + Client Showcase) */}
       {showInvoiceModal && (
         <InvoiceModal
           brandName={brandName}
@@ -3054,6 +4253,11 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
           initialAreaSqm={Math.max(15, areaReport.totalAreaSqm)}
           initialWallLengthM={Math.max(10, areaReport.grossWallLengthM)}
           initialWallHeightM={floorPlan.wallHeight || 2.8}
+          showcaseImages={showcaseImages}
+          onUpdateShowcaseImages={setShowcaseImages}
+          onCapture2D={() => capture2DRef.current?.() ?? null}
+          onCapture3D={() => capture3DRef.current?.() ?? null}
+          focusShowcaseSection={focusShowcaseInInvoice}
           onUpdateFurniturePrice={(furnitureId, nextPriceDzd) => {
             updateFloorPlan(
               {
@@ -3065,7 +4269,10 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
               false
             );
           }}
-          onClose={() => setShowInvoiceModal(false)}
+          onClose={() => {
+            setShowInvoiceModal(false);
+            setFocusShowcaseInInvoice(false);
+          }}
         />
       )}
 
@@ -3073,7 +4280,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
       <SketchToPlanModal
         isOpen={showSketchModal}
         brandName={brandName}
-        isUserProActive={isUserProActive}
+        isUserProActive={isAiArProActive}
         currentPlan={floorPlan}
         onClose={() => setShowSketchModal(false)}
         onOpenProUpgrade={() => {
@@ -3099,7 +4306,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
         isOpen={showCameraArModal}
         projectTitle={title}
         floorPlan={floorPlan}
-        isUserProActive={isUserProActive}
+        isUserProActive={isAiArProActive}
         onClose={() => setShowCameraArModal(false)}
         onOpenProUpgrade={() => {
           setShowCameraArModal(false);

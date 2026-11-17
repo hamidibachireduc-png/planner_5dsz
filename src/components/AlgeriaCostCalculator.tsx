@@ -13,8 +13,16 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  Sparkles,
+  X,
 } from 'lucide-react';
+import { FloorPlanData } from '../types/planner';
+import {
+  GeneratedPlanVariant,
+  generateEstimatedFloorPlanVariants,
+} from '../utils/estimatePlanGenerator';
 import { InvoiceModal } from './InvoiceModal';
+import { TemplateBlueprintPreview } from './TemplateBlueprintPreview';
 import {
   ALGERIA_REGIONS,
   AlgeriaMarketSnapshot,
@@ -23,8 +31,10 @@ import {
   FinishLevel,
   MATERIAL_CATEGORIES,
   MaterialCategory,
+  SmartLaborInputs,
   buildRegionalReferenceSnapshot,
   computeAlgeriaConstructionEstimate,
+  computeSmartLaborEstimate,
   estimateDimensionsFromSpaces,
   formatDzd,
   formatMillionCentimes,
@@ -35,12 +45,22 @@ export interface LinkedPlanMetrics {
   floorAreaSqm: number;
   wallLengthM: number;
   wallHeightM: number;
+  columnsCount?: number;
+  beamsLengthM?: number;
+}
+
+export interface GeneratedEstimatePlanPayload {
+  title: string;
+  floorPlan: FloorPlanData;
+  variantTitle: string;
 }
 
 interface AlgeriaCostCalculatorProps {
   linkedPlan?: LinkedPlanMetrics;
   compactModal?: boolean;
-  onStartPlanFromEstimate?: (areaSqm: number) => void;
+  allowAiLiveSync?: boolean;
+  onOpenProUpgrade?: () => void;
+  onStartPlanFromEstimate?: (payload: GeneratedEstimatePlanPayload) => void;
 }
 
 const CUSTOM_OVERRIDES_KEY = 'bachir5d_algeria_price_overrides_v1';
@@ -48,6 +68,8 @@ const CUSTOM_OVERRIDES_KEY = 'bachir5d_algeria_price_overrides_v1';
 export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
   linkedPlan,
   compactModal = false,
+  allowAiLiveSync = true,
+  onOpenProUpgrade,
   onStartPlanFromEstimate,
 }) => {
   const [region, setRegion] = useState<AlgeriaRegion>('center');
@@ -56,7 +78,7 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
   );
   const [loadingPrices, setLoadingPrices] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(allowAiLiveSync);
 
   const [priceOverrides, setPriceOverrides] = useState<Record<string, number>>(() => {
     try {
@@ -71,6 +93,7 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
   const [priceSearch, setPriceSearch] = useState('');
   const [savedNotice, setSavedNotice] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showLayoutPicker, setShowLayoutPicker] = useState(false);
 
   const [autoSyncSpaces, setAutoSyncSpaces] = useState<boolean>(!linkedPlan);
 
@@ -92,6 +115,36 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
     includeTiling: true,
     includeLabor: true,
   }));
+
+  const [smartLabor, setSmartLabor] = useState<SmartLaborInputs>(() => {
+    const area = linkedPlan ? Math.max(15, Math.round(linkedPlan.floorAreaSqm)) : 112;
+    const wallLen = linkedPlan ? Math.max(10, Math.round(linkedPlan.wallLengthM)) : 68;
+    const wallH = linkedPlan ? Number(linkedPlan.wallHeightM.toFixed(2)) : 2.9;
+    return {
+      wallLengthM: wallLen,
+      wallHeightM: wallH,
+      plasterFaces: 2,
+      columnsCount:
+        linkedPlan?.columnsCount && linkedPlan.columnsCount > 0
+          ? linkedPlan.columnsCount
+          : Math.max(6, Math.round(area / 12)),
+      beamsLengthM:
+        linkedPlan?.beamsLengthM && linkedPlan.beamsLengthM > 0
+          ? Math.round(linkedPlan.beamsLengthM)
+          : Math.round(wallLen * 0.85),
+      dalleAreaSqm: area,
+      foundationLengthM: Math.round(Math.sqrt(area) * 4 + wallLen * 0.35),
+      tilingAreaSqm: Math.round(area * 1.1),
+      paintAreaSqm: Math.round(wallLen * wallH * 1.65 + area),
+      placoAreaSqm: Math.round(area * 0.6),
+      waterproofAreaSqm: area,
+      plumbingPoints: 8,
+      electricPoints: Math.max(16, Math.round(area * 0.3)),
+      includeConcreteSupply: false,
+    };
+  });
+
+  const [smartAutoSync, setSmartAutoSync] = useState<boolean>(true);
 
   const updateSpaceCount = (
     key:
@@ -135,40 +188,56 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
     }));
   }, [linkedPlan]);
 
-  const fetchMarketPrices = useCallback(async (targetRegion: AlgeriaRegion, force = false) => {
-    setLoadingPrices(true);
-    setFetchError(null);
-    try {
-      const res = await fetch(
-        `/api/algeria-market-prices?region=${encodeURIComponent(targetRegion)}&force=${force ? '1' : '0'}`
-      );
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+  const fetchMarketPrices = useCallback(
+    async (targetRegion: AlgeriaRegion, force = false) => {
+      if (!allowAiLiveSync) {
+        setSnapshot(buildRegionalReferenceSnapshot(targetRegion));
+        if (force) {
+          setFetchError(
+            'التحديث المباشر للأسعار عبر الذكاء الاصطناعي مستثنى من الدخول المجاني ومتاح حصرياً لنسخة برو — تم عرض الأسعار المرجعية.'
+          );
+          onOpenProUpgrade?.();
+        } else {
+          setFetchError(null);
+        }
+        return;
       }
-      const data = (await res.json()) as AlgeriaMarketSnapshot;
-      if (data && Array.isArray(data.prices)) {
-        setSnapshot(data);
+
+      setLoadingPrices(true);
+      setFetchError(null);
+      try {
+        const res = await fetch(
+          `/api/algeria-market-prices?region=${encodeURIComponent(targetRegion)}&force=${force ? '1' : '0'}`
+        );
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = (await res.json()) as AlgeriaMarketSnapshot;
+        if (data && Array.isArray(data.prices)) {
+          setSnapshot(data);
+        }
+      } catch {
+        setSnapshot(buildRegionalReferenceSnapshot(targetRegion));
+        setFetchError('تعذر الاتصال بخدمة التحديث المباشر حالياً — تم عرض الأسعار المرجعية المعتمدة.');
+      } finally {
+        setLoadingPrices(false);
       }
-    } catch {
-      setSnapshot(buildRegionalReferenceSnapshot(targetRegion));
-      setFetchError('تعذر الاتصال بخدمة التحديث المباشر حالياً — تم عرض الأسعار المرجعية المعتمدة.');
-    } finally {
-      setLoadingPrices(false);
-    }
-  }, []);
+    },
+    [allowAiLiveSync, onOpenProUpgrade]
+  );
 
   useEffect(() => {
     void fetchMarketPrices(region, false);
   }, [region, fetchMarketPrices]);
 
-  // Continuous auto-sync polling every 30 minutes when enabled
+  // Continuous auto-sync polling every 30 minutes when enabled & allowed
   useEffect(() => {
-    if (!autoRefresh) return;
+    if (!autoRefresh || !allowAiLiveSync) return;
     const timer = setInterval(() => {
       void fetchMarketPrices(region, false);
     }, 30 * 60 * 1000);
     return () => clearInterval(timer);
-  }, [autoRefresh, region, fetchMarketPrices]);
+  }, [autoRefresh, allowAiLiveSync, region, fetchMarketPrices]);
 
   const effectivePrices = useMemo(() => {
     return snapshot.prices.map((item) => {
@@ -185,6 +254,48 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
   const estimate = useMemo(
     () => computeAlgeriaConstructionEstimate(inputs, effectivePrices),
     [inputs, effectivePrices]
+  );
+
+  const effectiveSmartLaborInputs = useMemo<SmartLaborInputs>(() => {
+    if (!smartAutoSync) return smartLabor;
+    const floors = Math.max(1, inputs.floorsCount || 1);
+    const dalleArea = inputs.floorAreaSqm * floors;
+    const autoCols =
+      linkedPlan?.columnsCount && linkedPlan.columnsCount > 0
+        ? linkedPlan.columnsCount * floors
+        : Math.max(6, Math.round(inputs.floorAreaSqm / 12)) * floors;
+    const autoBeams =
+      linkedPlan?.beamsLengthM && linkedPlan.beamsLengthM > 0
+        ? Math.round(linkedPlan.beamsLengthM * floors)
+        : Math.round(inputs.wallLengthM * 0.85 * floors);
+    const wetPts =
+      (inputs.kitchensCount ?? 1) * 4 + (inputs.bathroomsCount ?? 1) * 4 + 2;
+    const elecPts =
+      ((inputs.roomsCount ?? 3) * 5 +
+        (inputs.salonsCount ?? 1) * 8 +
+        (inputs.kitchensCount ?? 1) * 6 +
+        (inputs.bathroomsCount ?? 1) * 3) *
+      floors;
+    return {
+      ...smartLabor,
+      wallLengthM: Math.round(inputs.wallLengthM * floors),
+      wallHeightM: inputs.wallHeightM,
+      columnsCount: autoCols,
+      beamsLengthM: autoBeams,
+      dalleAreaSqm: dalleArea,
+      foundationLengthM: Math.round(Math.sqrt(inputs.floorAreaSqm) * 4 + inputs.wallLengthM * 0.35),
+      tilingAreaSqm: Math.round(dalleArea * 1.1),
+      paintAreaSqm: estimate.paintAreaSqm,
+      placoAreaSqm: Math.round(dalleArea * 0.6),
+      waterproofAreaSqm: inputs.floorAreaSqm,
+      plumbingPoints: Math.max(4, wetPts * floors),
+      electricPoints: Math.max(10, elecPts),
+    };
+  }, [smartAutoSync, smartLabor, inputs, linkedPlan, estimate.paintAreaSqm]);
+
+  const smartLaborEstimate = useMemo(
+    () => computeSmartLaborEstimate(effectiveSmartLaborInputs, effectivePrices),
+    [effectiveSmartLaborInputs, effectivePrices]
   );
 
   const filteredPriceRows = useMemo(() => {
@@ -311,7 +422,13 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
             className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-60 px-3.5 py-2 text-xs font-semibold text-white transition-colors whitespace-nowrap shrink-0"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingPrices ? 'animate-spin' : ''}`} />
-            <span>{loadingPrices ? 'جارٍ التحديث...' : 'تحديث الأسعار الآن'}</span>
+            <span>
+              {loadingPrices
+                ? 'جارٍ التحديث...'
+                : allowAiLiveSync
+                  ? 'تحديث الأسعار الآن'
+                  : 'تحديث مباشر بالذكاء الاصطناعي (برو)'}
+            </span>
           </button>
         </div>
       </div>
@@ -328,11 +445,16 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
         <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer whitespace-nowrap shrink-0">
           <input
             type="checkbox"
-            checked={autoRefresh}
+            checked={allowAiLiveSync ? autoRefresh : false}
+            disabled={!allowAiLiveSync}
             onChange={(e) => setAutoRefresh(e.target.checked)}
-            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
           />
-          <span>تحديث مستمر تلقائي</span>
+          <span>
+            {allowAiLiveSync
+              ? 'تحديث مستمر تلقائي'
+              : 'التحديث التلقائي بالذكاء الاصطناعي (نسخة برو)'}
+          </span>
         </label>
       </div>
 
@@ -609,13 +731,35 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
           </div>
 
           {onStartPlanFromEstimate && !linkedPlan && (
-            <button
-              type="button"
-              onClick={() => onStartPlanFromEstimate(inputs.floorAreaSqm)}
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-blue-600 hover:text-white hover:border-blue-600 py-2.5 text-xs font-semibold transition-colors"
-            >
-              تصميم مخطط بهذه المساحة ({inputs.floorAreaSqm} م²)
-            </button>
+            <div className="space-y-2 pt-1">
+              <div className="rounded-lg border border-blue-200/80 dark:border-blue-900/60 bg-blue-50/70 dark:bg-blue-950/25 px-3 py-2 text-[11px] text-blue-900 dark:text-blue-200 leading-relaxed">
+                <div className="font-bold">
+                  سيتم توليد المخطط بكل الغرف المختارة ({inputs.floorAreaSqm} م²):
+                </div>
+                <div className="mt-0.5 text-blue-800/90 dark:text-blue-300">
+                  {[
+                    (inputs.roomsCount ?? 0) > 0 ? `${inputs.roomsCount} غرف نوم` : null,
+                    (inputs.salonsCount ?? 0) > 0 ? `${inputs.salonsCount} صالون` : null,
+                    (inputs.kitchensCount ?? 0) > 0 ? `${inputs.kitchensCount} مطبخ` : null,
+                    (inputs.bathroomsCount ?? 0) > 0 ? `${inputs.bathroomsCount} حمام` : null,
+                    (inputs.garagesCount ?? 0) > 0 ? `${inputs.garagesCount} كراج` : null,
+                    (inputs.balconiesCount ?? 0) > 0 ? `${inputs.balconiesCount} شرفة` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || 'فضاء مفتوح'}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLayoutPicker(true)}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-3 text-xs font-semibold shadow-sm transition-colors"
+              >
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <span>
+                  تصميم مخطط بالغرف المختارة ({inputs.floorAreaSqm} م² · 4 احتمالات للتوزيع)
+                </span>
+              </button>
+            </div>
           )}
         </div>
 
@@ -730,8 +874,8 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">
-              الكميات محسوبة وفق معدلات التنفيذ المعتمدة في البناء الجزائري (+10% نسبة هدر للبلاط).
+            <span className="text-[11px] text-amber-700 dark:text-amber-300 font-medium">
+              ملاحظة: جميع الأسعار والكميات المعروضة تقديرية استرشادية وليست نهائية.
             </span>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -740,7 +884,7 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
                 className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 px-3.5 py-1.5 text-xs font-semibold text-white transition-colors whitespace-nowrap shrink-0"
               >
                 <Receipt className="w-3.5 h-3.5" />
-                <span>فاتورة الحسابات PDF</span>
+                <span>فاتورة الحسابات التقديرية PDF</span>
               </button>
               <button
                 type="button"
@@ -758,6 +902,348 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
                 {savedNotice ? <Check className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
                 <span>{savedNotice ? 'تم التصدير' : 'تصدير المقايسة'}</span>
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Smart Detailed Labor Calculator (Meter / Masonry / Plaster / Columns / Beams / Dalle) */}
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181B20] p-5 space-y-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
+          <div>
+            <h3 className="font-display text-lg font-bold text-slate-900 dark:text-white">
+              01-ب. الحاسبة الذكية لليد العاملة بالمتر والعناصر الخرسانية (بيلي، سانتر، دالة كاملة)
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              احسب أجرة البناء بالمتر المربع، طلية وتلبيس الجدار، أعمدة البوطون (البيليات)، السوانتر بالمتر الطولي، والدالة الكاملة وبقية الحرف.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <label className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-1.5 cursor-pointer font-medium">
+              <input
+                type="checkbox"
+                checked={smartAutoSync}
+                onChange={(e) => {
+                  if (!e.target.checked) {
+                    setSmartLabor(effectiveSmartLaborInputs);
+                  }
+                  setSmartAutoSync(e.target.checked);
+                }}
+                className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span>مزامنة تلقائية مع المخطط</span>
+            </label>
+            <label className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/30 px-3 py-1.5 cursor-pointer font-medium text-amber-900 dark:text-amber-200">
+              <input
+                type="checkbox"
+                checked={smartLabor.includeConcreteSupply}
+                onChange={(e) =>
+                  setSmartLabor((prev) => ({
+                    ...prev,
+                    includeConcreteSupply: e.target.checked,
+                  }))
+                }
+                className="rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+              />
+              <span>احتساب تكلفة البوطون الجاهز ({smartLaborEstimate.concreteVolumeM3} م³)</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Interactive Meter & Structural Parameters */}
+          <div className="lg:col-span-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 gap-2.5 text-xs">
+            <div>
+              <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                طول الجدران (م)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={effectiveSmartLaborInputs.wallLengthM}
+                onChange={(e) => {
+                  const val = Math.max(0, Number(e.target.value) || 0);
+                  setSmartAutoSync(false);
+                  setSmartLabor({ ...effectiveSmartLaborInputs, wallLengthM: val });
+                }}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                ارتفاع الجدار (م)
+              </label>
+              <input
+                type="number"
+                min={2}
+                max={6}
+                step={0.1}
+                value={effectiveSmartLaborInputs.wallHeightM}
+                onChange={(e) => {
+                  const val = Math.max(2, Number(e.target.value) || 2.8);
+                  setSmartAutoSync(false);
+                  setSmartLabor({ ...effectiveSmartLaborInputs, wallHeightM: val });
+                }}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                طلية / تلبيس الجدار
+              </label>
+              <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-100 dark:bg-slate-800">
+                {([1, 2] as const).map((faces) => (
+                  <button
+                    key={faces}
+                    type="button"
+                    onClick={() =>
+                      setSmartLabor((p) => ({ ...p, plasterFaces: faces }))
+                    }
+                    className={`py-1 rounded font-semibold transition-colors ${
+                      effectiveSmartLaborInputs.plasterFaces === faces
+                        ? 'bg-white dark:bg-slate-950 text-blue-700 dark:text-blue-400 shadow-xs'
+                        : 'text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    {faces === 1 ? 'وجه واحد' : 'وجهين'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                عدد البيليات (الأعمدة)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={effectiveSmartLaborInputs.columnsCount}
+                onChange={(e) => {
+                  const val = Math.max(0, Math.round(Number(e.target.value) || 0));
+                  setSmartAutoSync(false);
+                  setSmartLabor({ ...effectiveSmartLaborInputs, columnsCount: val });
+                }}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                طول السوانتر (م طولي)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={effectiveSmartLaborInputs.beamsLengthM}
+                onChange={(e) => {
+                  const val = Math.max(0, Number(e.target.value) || 0);
+                  setSmartAutoSync(false);
+                  setSmartLabor({ ...effectiveSmartLaborInputs, beamsLengthM: val });
+                }}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                الدالة الكاملة (م²)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={effectiveSmartLaborInputs.dalleAreaSqm}
+                onChange={(e) => {
+                  const val = Math.max(0, Number(e.target.value) || 0);
+                  setSmartAutoSync(false);
+                  setSmartLabor({ ...effectiveSmartLaborInputs, dalleAreaSqm: val });
+                }}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                الأساسات واللونغرين (م)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={effectiveSmartLaborInputs.foundationLengthM}
+                onChange={(e) => {
+                  const val = Math.max(0, Number(e.target.value) || 0);
+                  setSmartAutoSync(false);
+                  setSmartLabor({ ...effectiveSmartLaborInputs, foundationLengthM: val });
+                }}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                البلاط والسيراميك (م²)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={effectiveSmartLaborInputs.tilingAreaSqm}
+                onChange={(e) => {
+                  const val = Math.max(0, Number(e.target.value) || 0);
+                  setSmartAutoSync(false);
+                  setSmartLabor({ ...effectiveSmartLaborInputs, tilingAreaSqm: val });
+                }}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                بلاكو بلاتر BA13 (م²)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={effectiveSmartLaborInputs.placoAreaSqm}
+                onChange={(e) => {
+                  const val = Math.max(0, Number(e.target.value) || 0);
+                  setSmartAutoSync(false);
+                  setSmartLabor({ ...effectiveSmartLaborInputs, placoAreaSqm: val });
+                }}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                الكتامة والعزل (م²)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={effectiveSmartLaborInputs.waterproofAreaSqm}
+                onChange={(e) => {
+                  const val = Math.max(0, Number(e.target.value) || 0);
+                  setSmartAutoSync(false);
+                  setSmartLabor({ ...effectiveSmartLaborInputs, waterproofAreaSqm: val });
+                }}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                نقاط الترصيص (ماء/غاز)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={effectiveSmartLaborInputs.plumbingPoints}
+                onChange={(e) => {
+                  const val = Math.max(0, Math.round(Number(e.target.value) || 0));
+                  setSmartAutoSync(false);
+                  setSmartLabor({ ...effectiveSmartLaborInputs, plumbingPoints: val });
+                }}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums font-bold"
+              />
+            </div>
+
+            <div>
+              <label className="block font-medium text-slate-600 dark:text-slate-300 mb-1">
+                نقاط الكهرباء (إنارة/مآخذ)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={effectiveSmartLaborInputs.electricPoints}
+                onChange={(e) => {
+                  const val = Math.max(0, Math.round(Number(e.target.value) || 0));
+                  setSmartAutoSync(false);
+                  setSmartLabor({ ...effectiveSmartLaborInputs, electricPoints: val });
+                }}
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2.5 py-1.5 font-mono-nums font-bold"
+              />
+            </div>
+          </div>
+
+          {/* Smart Labor Output Breakdown */}
+          <div className="lg:col-span-7 flex flex-col justify-between gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-3">
+                <div className="text-slate-500 dark:text-slate-400">بناء وتلبيس الجدران</div>
+                <div className="font-mono-nums font-bold text-sm text-slate-900 dark:text-white mt-0.5">
+                  {formatDzd(smartLaborEstimate.masonryAndPlasterTotalDzd)}
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-3">
+                <div className="text-slate-500 dark:text-slate-400">
+                  البوطون (بيلي، سانتر، دالة)
+                </div>
+                <div className="font-mono-nums font-bold text-sm text-slate-900 dark:text-white mt-0.5">
+                  {formatDzd(smartLaborEstimate.concreteAndStructureTotalDzd)}
+                </div>
+              </div>
+              <div className="rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/70 dark:bg-blue-950/30 p-3">
+                <div className="text-blue-800 dark:text-blue-300 font-semibold">
+                  إجمالي اليد العاملة التقديري
+                </div>
+                <div className="font-mono-nums font-bold text-base text-blue-900 dark:text-blue-200 mt-0.5">
+                  {formatDzd(smartLaborEstimate.grandTotalDzd)}
+                </div>
+                <div className="text-[10px] font-mono-nums text-blue-700 dark:text-blue-400">
+                  {formatMillionCentimes(smartLaborEstimate.grandTotalDzd)}
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg max-h-[300px] overflow-y-auto studio-scroll">
+              <table className="w-full text-right text-xs">
+                <thead className="bg-slate-50 dark:bg-slate-900/90 text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800 sticky top-0">
+                  <tr>
+                    <th className="py-2 px-3 font-semibold">البند بالمتر / العنصر</th>
+                    <th className="py-2 px-3 font-semibold">الكمية</th>
+                    <th className="py-2 px-3 font-semibold">سعر الوحدة</th>
+                    <th className="py-2 px-3 font-semibold">التكلفة التقديرية</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {smartLaborEstimate.lines.map((line) => (
+                    <tr key={line.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                      <td className="py-2 px-3">
+                        <div className="font-semibold text-slate-900 dark:text-white">
+                          {line.label}
+                        </div>
+                        <div className="text-[10px] text-slate-400">{line.formulaHint}</div>
+                      </td>
+                      <td className="py-2 px-3 font-mono-nums whitespace-nowrap text-slate-700 dark:text-slate-200">
+                        {line.quantity.toLocaleString('fr-DZ')} {line.unit}
+                      </td>
+                      <td className="py-2 px-3 font-mono-nums whitespace-nowrap text-slate-600 dark:text-slate-300">
+                        {formatDzd(line.unitRateDzd)}
+                      </td>
+                      <td className="py-2 px-3 font-mono-nums font-bold whitespace-nowrap text-slate-900 dark:text-white">
+                        {formatDzd(line.totalDzd)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-950/30 px-3 py-2 text-[11px] text-amber-900 dark:text-amber-200">
+              تنبيه: الأسعار المطبقة في الحاسبة الذكية مرتبطة بدليل أسعار اليد العاملة أدناه، وهي قيم تقديرية استرشادية وليست نهائية.
             </div>
           </div>
         </div>
@@ -917,6 +1403,21 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
         )}
       </div>
 
+      {showLayoutPicker && onStartPlanFromEstimate && !linkedPlan && (
+        <EstimatedLayoutPickerModal
+          inputs={inputs}
+          onClose={() => setShowLayoutPicker(false)}
+          onSelectVariant={(variant) => {
+            setShowLayoutPicker(false);
+            onStartPlanFromEstimate({
+              title: `مخطط ${variant.totalAreaSqm} م² (${variant.roomsSummary || 'مخصص'})`,
+              floorPlan: structuredClone(variant.floorPlan),
+              variantTitle: variant.title,
+            });
+          }}
+        />
+      )}
+
       {showInvoiceModal && (
         <InvoiceModal
           brandName="خدمات انشاء حميدي البشير"
@@ -929,5 +1430,114 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
         />
       )}
     </section>
+  );
+};
+
+interface EstimatedLayoutPickerModalProps {
+  inputs: EstimatorInputs;
+  onClose: () => void;
+  onSelectVariant: (variant: GeneratedPlanVariant) => void;
+}
+
+const EstimatedLayoutPickerModal: React.FC<EstimatedLayoutPickerModalProps> = ({
+  inputs,
+  onClose,
+  onSelectVariant,
+}) => {
+  const variants = useMemo(() => generateEstimatedFloorPlanVariants(inputs), [inputs]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-3 sm:p-5"
+      role="dialog"
+      aria-modal="true"
+      aria-label="اختيار احتمال توزيع الغرف والمطبخ"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-5xl max-h-[90vh] flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181B20] shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60">
+          <div>
+            <h3 className="font-display text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+              احتمالات توزيع الغرف والمطبخ والصالة ({inputs.floorAreaSqm} م²)
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              تم توليد 4 مقترحات معمارية بالعدد الدقيق للغرف والفضاءات المختارة — اختر الاحتمال الأنسب لفتحه وتعديله في الاستوديو.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="إغلاق"
+            className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-4 sm:p-5 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+          {variants.map((variant) => (
+            <div
+              key={variant.id}
+              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 overflow-hidden flex flex-col justify-between hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
+            >
+              <div>
+                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-2 bg-white dark:bg-[#181B20]">
+                  <div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white">
+                      {variant.title}
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                      {variant.subtitle}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-md bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:text-blue-300">
+                    {variant.badge}
+                  </span>
+                </div>
+
+                <div className="h-56 w-full border-b border-slate-200 dark:border-slate-800 bg-[#FAF8F4] dark:bg-[#14181F]">
+                  <TemplateBlueprintPreview
+                    floorPlan={variant.floorPlan}
+                    showRoomLabels={true}
+                  />
+                </div>
+
+                <div className="p-3.5 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold">
+                    <span className="text-slate-800 dark:text-slate-200">
+                      {variant.roomsSummary}
+                    </span>
+                    <span className="font-mono-nums text-blue-700 dark:text-blue-400">
+                      {variant.totalAreaSqm} م² · {variant.floorPlan.rooms.length} فضاء
+                    </span>
+                  </div>
+                  <ul className="space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
+                    {variant.placementNotes.map((note, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                        <span>{note}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="px-3.5 pb-3.5">
+                <button
+                  type="button"
+                  onClick={() => onSelectVariant(variant)}
+                  className="w-full rounded-lg bg-slate-900 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white py-2 text-xs font-semibold transition-colors"
+                >
+                  تصميم وفتح هذا الاحتمال في الاستوديو
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 };

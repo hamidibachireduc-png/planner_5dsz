@@ -91,6 +91,8 @@ export function buildFurnitureGroup(
     'smart_tv_wall',
     'towel_warmer',
     'range_hood',
+    'kitchen_wall_cupboard_dz',
+    'toilet_arabic',
   ]);
   if (!noFloorShadowTypes.has(item.type)) {
     addContactShadow(root, w, d);
@@ -1354,6 +1356,243 @@ export function buildFurnitureGroup(
           false
         );
       });
+      break;
+    }
+
+    case 'potager_straight': {
+      // Algerian built-in Potager: masonry/tiled base, twin recessed doors, granite slab, sink & gooseneck tap
+      addPart(root, new THREE.BoxGeometry(w, h - 0.06, d * 0.92), primaryMat, 0, (h - 0.06) / 2, -d * 0.02);
+      // Granite/marble slab overhanging slightly
+      addPart(root, new THREE.BoxGeometry(w + 0.04, 0.06, d + 0.04), accentMat, 0, h - 0.03, 0);
+      // Backsplash ledge
+      addPart(root, new THREE.BoxGeometry(w + 0.04, 0.14, 0.04), accentMat, 0, h + 0.07, -d / 2 + 0.02);
+      // Cabinet door bays + handles
+      [-w * 0.25, w * 0.25].forEach((dx) => {
+        addPart(root, new THREE.BoxGeometry(w * 0.42, h - 0.18, 0.02), ceramicMat, dx, (h - 0.06) / 2, d * 0.45);
+        addPart(root, new THREE.CylinderGeometry(0.008, 0.008, 0.14, 8), chromeMat, dx + (dx < 0 ? 0.12 : -0.12), h * 0.52, d * 0.47);
+      });
+      // Stainless sink basin + tap
+      addPart(root, new THREE.BoxGeometry(w * 0.34, 0.03, d * 0.62), chromeMat, w * 0.22, h + 0.005, 0.02);
+      addPart(root, new THREE.BoxGeometry(w * 0.28, 0.02, d * 0.5), darkMetalMat, w * 0.22, h + 0.015, 0.02);
+      addPart(root, new THREE.CylinderGeometry(0.014, 0.018, 0.24, 10), chromeMat, w * 0.22, h + 0.12, -d * 0.3);
+      addPart(root, new THREE.CylinderGeometry(0.01, 0.01, 0.14, 10), chromeMat, w * 0.22, h + 0.23, -d * 0.23, Math.PI / 2);
+      break;
+    }
+
+    case 'potager_curved': {
+      // Curved-front Algerian Potager Courbé with rounded granite front and round sink
+      addPart(root, new THREE.BoxGeometry(w * 0.96, h - 0.06, d * 0.65), primaryMat, 0, (h - 0.06) / 2, -d * 0.15);
+      addPart(
+        root,
+        new THREE.CylinderGeometry(w * 0.48, w * 0.48, h - 0.06, 28, 1, false, -Math.PI / 2, Math.PI),
+        primaryMat,
+        0,
+        (h - 0.06) / 2,
+        d * 0.14,
+        0,
+        0,
+        0
+      );
+      // Curved granite slab
+      addPart(root, new THREE.BoxGeometry(w + 0.04, 0.06, d * 0.68), accentMat, 0, h - 0.03, -d * 0.14);
+      addPart(
+        root,
+        new THREE.CylinderGeometry(w * 0.51, w * 0.51, 0.06, 28, 1, false, -Math.PI / 2, Math.PI),
+        accentMat,
+        0,
+        h - 0.03,
+        d * 0.14
+      );
+      addPart(root, new THREE.BoxGeometry(w + 0.04, 0.13, 0.04), accentMat, 0, h + 0.065, -d / 2 + 0.02);
+      // Round stainless sink + curved spout
+      addPart(root, new THREE.CylinderGeometry(0.24, 0.2, 0.03, 22), chromeMat, 0, h + 0.008, d * 0.05);
+      addPart(root, new THREE.CylinderGeometry(0.2, 0.18, 0.02, 20), darkMetalMat, 0, h + 0.018, d * 0.05);
+      addPart(root, new THREE.CylinderGeometry(0.015, 0.018, 0.24, 10), chromeMat, 0, h + 0.12, -d * 0.28);
+      break;
+    }
+
+    case 'potager_corner': {
+      // L-shaped Corner Algerian Potager fitting cleanly along two perpendicular walls
+      const armD = Math.min(0.65, d * 0.38);
+      const armW = Math.min(0.65, w * 0.38);
+      // Back arm along -Z
+      addPart(root, new THREE.BoxGeometry(w, h - 0.06, armD), primaryMat, 0, (h - 0.06) / 2, -d / 2 + armD / 2);
+      addPart(root, new THREE.BoxGeometry(w + 0.03, 0.06, armD + 0.03), accentMat, 0, h - 0.03, -d / 2 + armD / 2);
+      // Left arm along -X
+      const sideLen = Math.max(0.4, d - armD);
+      addPart(root, new THREE.BoxGeometry(armW, h - 0.06, sideLen), primaryMat, -w / 2 + armW / 2, (h - 0.06) / 2, armD / 2);
+      addPart(root, new THREE.BoxGeometry(armW + 0.03, 0.06, sideLen + 0.02), accentMat, -w / 2 + armW / 2, h - 0.03, armD / 2);
+      // Corner basin sink & tap
+      addPart(root, new THREE.BoxGeometry(0.54, 0.03, 0.44), chromeMat, w * 0.18, h + 0.006, -d / 2 + armD * 0.5);
+      addPart(root, new THREE.BoxGeometry(0.46, 0.02, 0.36), darkMetalMat, w * 0.18, h + 0.016, -d / 2 + armD * 0.5);
+      addPart(root, new THREE.CylinderGeometry(0.014, 0.018, 0.24, 10), chromeMat, w * 0.18, h + 0.12, -d / 2 + 0.08);
+      break;
+    }
+
+    case 'tabouna_bread_oven': {
+      // Traditional Algerian Tabouna gas ring + cast-iron Matlouh/Kessra tajine griddle
+      const legGeo = new THREE.BoxGeometry(0.04, h * 0.62, 0.04);
+      [
+        [-w * 0.38, -d * 0.38],
+        [w * 0.38, -d * 0.38],
+        [-w * 0.38, d * 0.38],
+        [w * 0.38, d * 0.38],
+      ].forEach(([lx, lz]) => addPart(root, legGeo, darkMetalMat, lx, h * 0.31, lz));
+      // Square cast-iron burner frame
+      addPart(root, new THREE.BoxGeometry(w * 0.9, 0.08, d * 0.9), darkMetalMat, 0, h * 0.62, 0);
+      // Gas burner ring + brass valve
+      addPart(root, new THREE.CylinderGeometry(Math.min(w, d) * 0.28, Math.min(w, d) * 0.3, 0.05, 18), brassMat, 0, h * 0.68, 0);
+      addPart(root, new THREE.CylinderGeometry(0.015, 0.015, 0.16, 8), brassMat, 0, h * 0.6, d * 0.46, Math.PI / 2);
+      // Terracotta / cast-iron Matlouh tajine pan + dome lid on top
+      addPart(root, new THREE.CylinderGeometry(Math.min(w, d) * 0.42, Math.min(w, d) * 0.38, 0.06, 24), primaryMat, 0, h * 0.76, 0);
+      addPart(root, new THREE.SphereGeometry(Math.min(w, d) * 0.34, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), accentMat, 0, h * 0.79, 0);
+      break;
+    }
+
+    case 'kitchen_wall_cupboard_dz': {
+      // Upper wall-mounted Algerian kitchen cupboard
+      const mountY = 1.52;
+      addPart(root, new THREE.BoxGeometry(w, h, d), primaryMat, 0, mountY, 0);
+      [-w * 0.24, w * 0.24].forEach((dx) => {
+        addPart(root, new THREE.BoxGeometry(w * 0.45, h * 0.86, 0.025), accentMat, dx, mountY, d / 2 + 0.008);
+        addPart(root, new THREE.BoxGeometry(w * 0.3, h * 0.55, 0.03), glassMat, dx, mountY + 0.03, d / 2 + 0.012, 0, 0, 0, false);
+        addPart(root, new THREE.CylinderGeometry(0.008, 0.008, 0.14, 8), chromeMat, dx + (dx < 0 ? 0.14 : -0.14), mountY - h * 0.22, d / 2 + 0.028);
+      });
+      break;
+    }
+
+    case 'dish_rack_counter_dz': {
+      // Algerian kitchen Égouttoir / dish drainer & prep cabinet
+      addPart(root, new THREE.BoxGeometry(w, h - 0.22, d), primaryMat, 0, (h - 0.22) / 2, 0);
+      addPart(root, new THREE.BoxGeometry(w + 0.02, 0.05, d + 0.02), accentMat, 0, h - 0.195, 0);
+      // Stainless draining rack & vertical plates
+      addPart(root, new THREE.BoxGeometry(w * 0.88, 0.03, d * 0.76), chromeMat, 0, h - 0.15, 0);
+      for (let i = -3; i <= 3; i++) {
+        addPart(root, new THREE.CylinderGeometry(0.14, 0.14, 0.018, 18), ceramicMat, i * (w * 0.11), h - 0.03, -0.02, 0, 0, Math.PI / 2);
+      }
+      break;
+    }
+
+    case 'toilet_arabic': {
+      // Floor-flush Arabic/Turkish squat toilet with ribbed ceramic footrests & low wall tank
+      addPart(root, new THREE.BoxGeometry(w, 0.04, d), ceramicMat, 0, 0.02, 0);
+      // Recessed dark basin opening
+      addPart(root, new THREE.CylinderGeometry(w * 0.22, w * 0.16, 0.045, 18), darkMetalMat, 0, 0.025, d * 0.08);
+      // Left & right ceramic raised footrests
+      addPart(root, new THREE.BoxGeometry(w * 0.22, 0.025, d * 0.44), makeMat('#E2E8F0', 0.35, 0.05), -w * 0.3, 0.05, d * 0.05);
+      addPart(root, new THREE.BoxGeometry(w * 0.22, 0.025, d * 0.44), makeMat('#E2E8F0', 0.35, 0.05), w * 0.3, 0.05, d * 0.05);
+      // Low wall cistern + chrome flush pipe + shattaf tap
+      addPart(root, new THREE.BoxGeometry(w * 0.72, h * 0.55, 0.14), ceramicMat, 0, h * 0.72, -d * 0.38);
+      addPart(root, new THREE.CylinderGeometry(0.015, 0.015, h * 0.45, 10), chromeMat, 0, h * 0.25, -d * 0.36);
+      break;
+    }
+
+    case 'toilet_anglaise': {
+      // Seated English porcelain toilet with cistern tank & side shattaf hose
+      addPart(root, new THREE.CylinderGeometry(w * 0.32, w * 0.26, 0.36, 18), ceramicMat, 0, 0.18, d * 0.08);
+      addPart(root, new THREE.CylinderGeometry(w * 0.44, w * 0.36, 0.12, 20), ceramicMat, 0, 0.38, d * 0.08);
+      addPart(root, new THREE.CylinderGeometry(w * 0.42, w * 0.42, 0.03, 20), accentMat, 0, 0.455, d * 0.08);
+      // Rear tank + chrome dual flush button
+      addPart(root, new THREE.BoxGeometry(w * 0.88, h * 0.56, 0.2), ceramicMat, 0, 0.56, -d * 0.34);
+      addPart(root, new THREE.CylinderGeometry(0.025, 0.025, 0.02, 12), chromeMat, 0, 0.56 + h * 0.28 + 0.008, -d * 0.34);
+      // Side chrome shattaf holder
+      addPart(root, new THREE.CylinderGeometry(0.015, 0.015, 0.12, 10), chromeMat, w * 0.46, 0.42, -d * 0.15);
+      break;
+    }
+
+    case 'shower_standard': {
+      // Enclosed standard Algerian shower tray + aluminum frame + sliding glass + chrome riser
+      addPart(root, new THREE.BoxGeometry(w, 0.12, d), ceramicMat, 0, 0.06, 0);
+      addPart(root, new THREE.BoxGeometry(w * 0.96, h - 0.12, 0.025), glassMat, 0, 0.12 + (h - 0.12) / 2, d / 2 - 0.02, 0, 0, 0, false);
+      addPart(root, new THREE.BoxGeometry(0.025, h - 0.12, d * 0.96), glassMat, w / 2 - 0.02, 0.12 + (h - 0.12) / 2, 0, 0, 0, 0, false);
+      // Chrome frame rails
+      addPart(root, new THREE.BoxGeometry(w, 0.04, 0.04), chromeMat, 0, h - 0.02, d / 2 - 0.02);
+      addPart(root, new THREE.BoxGeometry(0.04, 0.04, d), chromeMat, w / 2 - 0.02, h - 0.02, 0);
+      // Shower riser & showerhead
+      addPart(root, new THREE.CylinderGeometry(0.014, 0.014, h * 0.65, 10), chromeMat, -w * 0.32, h * 0.56, -d * 0.38);
+      addPart(root, new THREE.CylinderGeometry(0.09, 0.06, 0.03, 16), chromeMat, -w * 0.32, h * 0.88, -d * 0.26);
+      break;
+    }
+
+    case 'shower_italian': {
+      // Walk-in Douche à l'Italienne: flush stone wet floor + linear chrome drain + frameless glass screen + rain head
+      addPart(root, new THREE.BoxGeometry(w, 0.035, d), primaryMat, 0, 0.018, 0);
+      // Linear stainless drain
+      addPart(root, new THREE.BoxGeometry(w * 0.72, 0.01, 0.07), chromeMat, 0, 0.038, -d * 0.34);
+      // Single frameless glass screen along one edge
+      addPart(root, new THREE.BoxGeometry(w * 0.72, h, 0.022), glassMat, -w * 0.14, h / 2, d / 2 - 0.03, 0, 0, 0, false);
+      // Black/chrome stabilizer bar
+      addPart(root, new THREE.BoxGeometry(0.025, 0.025, d * 0.94), darkMetalMat, w * 0.2, h - 0.06, 0);
+      // Square overhead rain shower arm
+      addPart(root, new THREE.BoxGeometry(0.03, 0.03, 0.34), chromeMat, 0, h - 0.08, -d * 0.3);
+      addPart(root, new THREE.BoxGeometry(0.28, 0.02, 0.28), chromeMat, 0, h - 0.11, -d * 0.15);
+      break;
+    }
+
+    case 'shower_arabic_hammam': {
+      // Traditional Douche Arabe / Hammam Beldi with tiled curb, marble bench, brass taps & bath bucket
+      addPart(root, new THREE.BoxGeometry(w, 0.04, d), primaryMat, 0, 0.02, 0);
+      // Raised front/side perimeter curb
+      addPart(root, new THREE.BoxGeometry(w, 0.12, 0.08), accentMat, 0, 0.06, d / 2 - 0.04);
+      addPart(root, new THREE.BoxGeometry(0.08, 0.12, d), accentMat, w / 2 - 0.04, 0.06, 0);
+      // Seated marble bench at back
+      addPart(root, new THREE.BoxGeometry(w * 0.82, 0.42, d * 0.38), ceramicMat, -w * 0.04, 0.21, -d * 0.26);
+      // Brass double wall taps & copper/brass bath bucket (Satl)
+      addPart(root, new THREE.CylinderGeometry(0.015, 0.015, 0.22, 10), brassMat, -w * 0.15, 0.65, -d * 0.42, Math.PI / 2);
+      addPart(root, new THREE.CylinderGeometry(0.015, 0.015, 0.22, 10), brassMat, w * 0.05, 0.65, -d * 0.42, Math.PI / 2);
+      addPart(root, new THREE.CylinderGeometry(0.16, 0.12, 0.24, 18), brassMat, w * 0.24, 0.14, d * 0.16);
+      break;
+    }
+
+    case 'maida_low_table': {
+      // Low traditional Algerian wooden Maïda dining table for floor/sedari seating
+      const r = Math.min(w, d) / 2;
+      addPart(root, new THREE.CylinderGeometry(r, r * 0.98, 0.035, 28), primaryMat, 0, h - 0.018, 0);
+      addPart(root, new THREE.CylinderGeometry(r * 0.94, r * 0.94, 0.02, 28), accentMat, 0, h - 0.045, 0);
+      for (let i = 0; i < 4; i++) {
+        const ang = (i * Math.PI) / 2 + Math.PI / 4;
+        addPart(
+          root,
+          new THREE.CylinderGeometry(0.028, 0.02, h - 0.04, 10),
+          primaryMat,
+          Math.cos(ang) * r * 0.62,
+          (h - 0.04) / 2,
+          Math.sin(ang) * r * 0.62
+        );
+      }
+      // Traditional centerpiece dish
+      addPart(root, new THREE.CylinderGeometry(0.16, 0.12, 0.05, 20), brassMat, 0, h + 0.025, 0);
+      break;
+    }
+
+    case 'matrah_traditional_bed': {
+      // Traditional Algerian floor wool Matrah mattress with embroidered Lhaf & bolsters
+      addPart(root, new THREE.BoxGeometry(w, 0.16, d), primaryMat, 0, 0.08, 0);
+      // Quilted blanket fold
+      addPart(root, new THREE.BoxGeometry(w * 0.94, 0.07, d * 0.62), accentMat, 0, 0.18, d * 0.16);
+      // Embroidered floor cushions
+      const count = 3;
+      const cw = (w - 0.16) / count;
+      for (let i = 0; i < count; i++) {
+        const cx = -w / 2 + 0.08 + cw * (i + 0.5);
+        addPart(root, new THREE.BoxGeometry(cw - 0.04, 0.24, 0.16), brassMat, cx, 0.26, -d * 0.36, -0.2);
+      }
+      break;
+    }
+
+    case 'sewing_machine_table': {
+      // Traditional cast-iron treadle sewing machine table in Algerian rooms
+      addPart(root, new THREE.BoxGeometry(w, 0.04, d), primaryMat, 0, h * 0.74, 0);
+      // Cast-iron side frames + crossbars + treadle foot plate
+      [-w * 0.42, w * 0.42].forEach((sx) => {
+        addPart(root, new THREE.BoxGeometry(0.05, h * 0.72, d * 0.78), darkMetalMat, sx, h * 0.36, 0);
+      });
+      addPart(root, new THREE.BoxGeometry(w * 0.44, 0.025, d * 0.42), darkMetalMat, 0, 0.16, 0.04, 0.18);
+      // Classic black cast-iron sewing machine head & wheel
+      addPart(root, new THREE.BoxGeometry(w * 0.44, 0.05, 0.2), darkMetalMat, 0, h * 0.78, -0.02);
+      addPart(root, new THREE.BoxGeometry(0.08, h * 0.22, 0.1), darkMetalMat, w * 0.16, h * 0.89, -0.02);
+      addPart(root, new THREE.BoxGeometry(w * 0.38, 0.08, 0.08), darkMetalMat, 0, h * 0.96, -0.02);
+      addPart(root, new THREE.CylinderGeometry(0.075, 0.075, 0.025, 16), chromeMat, w * 0.23, h * 0.92, -0.02, 0, 0, Math.PI / 2);
       break;
     }
   }

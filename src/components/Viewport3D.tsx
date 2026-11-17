@@ -33,6 +33,7 @@ interface Viewport3DProps {
   selection: SelectionTarget;
   onSelect: (target: SelectionTarget) => void;
   isDarkTheme: boolean;
+  onCaptureReady?: (captureFn: () => string | null) => void;
 }
 
 const _vec3A = new THREE.Vector3();
@@ -292,6 +293,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   selection,
   onSelect,
   isDarkTheme,
+  onCaptureReady,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [cameraPreset, setCameraPreset] = useState<CameraPreset>('perspective');
@@ -303,6 +305,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   // Refs bridging React state into the persistent Three.js loop without re-mounting WebGL
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const onCaptureReadyRef = useRef(onCaptureReady);
+  onCaptureReadyRef.current = onCaptureReady;
   const moodRef = useRef(mood);
   moodRef.current = mood;
   const cameraPresetRef = useRef(cameraPreset);
@@ -636,6 +640,14 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       if (hits.length > 0) {
         let obj: THREE.Object3D | null = hits[0].object;
         while (obj && obj !== houseGroup) {
+          if (obj.userData?.kind === 'column' && obj.userData.columnId) {
+            onSelectRef.current({ kind: 'column', id: obj.userData.columnId });
+            return;
+          }
+          if (obj.userData?.kind === 'beam' && obj.userData.beamId) {
+            onSelectRef.current({ kind: 'beam', id: obj.userData.beamId });
+            return;
+          }
           if (obj.userData?.kind === 'furniture' && obj.userData.furnitureId) {
             onSelectRef.current({ kind: 'furniture', id: obj.userData.furnitureId });
             return;
@@ -698,6 +710,13 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       transitionTarget: null,
     };
 
+    onCaptureReadyRef.current?.(() => {
+      const refs = sceneRefs.current;
+      if (!refs) return null;
+      refs.renderer.render(refs.scene, refs.camera);
+      return refs.renderer.domElement.toDataURL('image/png');
+    });
+
     requestRender();
 
     return () => {
@@ -712,6 +731,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       disposeObject3D(scene);
       renderer.dispose();
       sceneRefs.current = null;
+      onCaptureReadyRef.current?.(() => null);
     };
   }, []);
 
@@ -776,7 +796,89 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       houseGroup.add(wallGroup);
     });
 
-    // 3. Furniture & Fixtures (3-12 part composite groups)
+    // 3. Structural Columns & Beams (Optional Reinforced Concrete Layer)
+    if (floorPlan.showStructureLayer !== false) {
+      const columns = floorPlan.columns || [];
+      const beams = floorPlan.beams || [];
+
+      columns.forEach((col) => {
+        const isSel = selection?.kind === 'column' && selection.id === col.id;
+        const colH = Math.max(0.45, (col.height || floorPlan.wallHeight || 2.8) * wallScale);
+        const colW = Math.max(0.18, col.width || 0.3);
+        const colD = Math.max(0.18, col.depth || 0.3);
+
+        const colGroup = new THREE.Group();
+        colGroup.position.set(col.x, 0, col.z);
+        colGroup.userData = { kind: 'column', columnId: col.id };
+
+        const concreteMat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(isSel ? '#3B82F6' : '#64748B'),
+          roughness: 0.78,
+          metalness: 0.08,
+        });
+        const collarMat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(isSel ? '#1D4ED8' : '#334155'),
+          roughness: 0.55,
+          metalness: 0.25,
+        });
+
+        const shaft = new THREE.Mesh(new THREE.BoxGeometry(colW, colH, colD), concreteMat);
+        shaft.position.set(0, colH / 2, 0);
+        shaft.castShadow = true;
+        shaft.receiveShadow = true;
+        shaft.userData = { kind: 'column', columnId: col.id };
+        colGroup.add(shaft);
+
+        const plinth = new THREE.Mesh(
+          new THREE.BoxGeometry(colW + 0.05, 0.08, colD + 0.05),
+          collarMat
+        );
+        plinth.position.set(0, 0.04, 0);
+        plinth.userData = { kind: 'column', columnId: col.id };
+        colGroup.add(plinth);
+
+        const cap = new THREE.Mesh(
+          new THREE.BoxGeometry(colW + 0.04, 0.06, colD + 0.04),
+          collarMat
+        );
+        cap.position.set(0, Math.max(0.05, colH - 0.03), 0);
+        cap.userData = { kind: 'column', columnId: col.id };
+        colGroup.add(cap);
+
+        houseGroup.add(colGroup);
+      });
+
+      beams.forEach((beam) => {
+        const dx = beam.x2 - beam.x1;
+        const dz = beam.z2 - beam.z1;
+        const len = Math.hypot(dx, dz);
+        if (len < 0.1) return;
+        const isSel = selection?.kind === 'beam' && selection.id === beam.id;
+        const beamH = Math.max(0.18, (beam.height || 0.35) * Math.min(1, wallScale + 0.15));
+        const beamW = Math.max(0.16, beam.width || 0.25);
+        const topY = Math.max(0.45, (floorPlan.wallHeight || 2.8) * wallScale);
+
+        const beamMat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(isSel ? '#2563EB' : '#475569'),
+          roughness: 0.72,
+          metalness: 0.12,
+        });
+
+        const beamMesh = new THREE.Mesh(new THREE.BoxGeometry(len, beamH, beamW), beamMat);
+        beamMesh.position.set(
+          (beam.x1 + beam.x2) / 2,
+          Math.max(beamH / 2, topY - beamH / 2 + 0.02),
+          (beam.z1 + beam.z2) / 2
+        );
+        beamMesh.rotation.y = -Math.atan2(dz, dx);
+        beamMesh.castShadow = true;
+        beamMesh.receiveShadow = true;
+        beamMesh.userData = { kind: 'beam', beamId: beam.id };
+        houseGroup.add(beamMesh);
+      });
+    }
+
+    // 4. Furniture & Fixtures (3-12 part composite groups)
     floorPlan.furniture.forEach((item) => {
       const isSelected = selection?.kind === 'furniture' && selection.id === item.id;
       const group = buildFurnitureGroup(item, isSoftwareGl, isSelected);

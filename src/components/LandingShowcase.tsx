@@ -49,7 +49,10 @@ import {
   downloadProjectToDevice,
   parseImportedProjectFile,
 } from '../utils/projectFileIo';
-import { AlgeriaCostCalculator } from './AlgeriaCostCalculator';
+import {
+  AlgeriaCostCalculator,
+  GeneratedEstimatePlanPayload,
+} from './AlgeriaCostCalculator';
 import { ProSubscribeModal } from './ProSubscribeModal';
 import { ProSubscriptionSection } from './ProSubscriptionSection';
 import { TemplateBlueprintPreview } from './TemplateBlueprintPreview';
@@ -59,6 +62,7 @@ interface LandingShowcaseProps {
   sessionUser: ActiveAuthSession;
   isAdminAuthorized: boolean;
   isUserProActive: boolean;
+  isAiArProActive?: boolean;
   isGuestSession?: boolean;
   guestDesignsUsed?: number;
   projects: ProjectRecord[];
@@ -71,6 +75,7 @@ interface LandingShowcaseProps {
   onSignOut: () => void;
   onOpenAdminPanel: () => void;
   onOpenNewBlank: () => void;
+  onStartGeneratedPlan: (payload: GeneratedEstimatePlanPayload) => void;
   onOpenSketchModal: () => void;
   onOpenTemplate: (template: StarterTemplate) => void;
   onOpenWithCatalogItem: (item: CatalogItemDef) => void;
@@ -120,6 +125,7 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
   sessionUser,
   isAdminAuthorized,
   isUserProActive,
+  isAiArProActive = false,
   isGuestSession = false,
   guestDesignsUsed = 0,
   projects,
@@ -132,6 +138,7 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
   onSignOut,
   onOpenAdminPanel,
   onOpenNewBlank,
+  onStartGeneratedPlan,
   onOpenSketchModal,
   onOpenTemplate,
   onOpenWithCatalogItem,
@@ -429,7 +436,7 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
                 </span>
               </div>
               <p className="text-xs text-emerald-900/85 dark:text-emerald-200/85 leading-relaxed">
-                جميع التصاميم الـ 200، مشاريع غير محدودة، التصميم من ورقة مرسومة، ومعاينة الكاميرا 2D في الفضاء الحقيقي مفتوحة مجاناً للجميع طوال فترة العرض.
+                جميع التصاميم الـ 200، مشاريع غير محدودة، وأدوات الرسم ثنائية وثلاثية الأبعاد مفتوحة مجاناً للجميع طوال فترة العرض (باستثناء خدمة التصميم من ورقة، الواقع المعزز، وخدمات الذكاء الاصطناعي الحصرية لنسخة برو).
               </p>
             </div>
             {isGuestSession && (
@@ -515,8 +522,8 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
                   className="inline-flex items-center gap-2 rounded-lg border border-amber-400 dark:border-amber-700 bg-amber-50/80 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 px-4 py-3 text-sm font-semibold text-amber-900 dark:text-amber-300 transition-colors whitespace-nowrap shrink-0"
                 >
                   <ImagePlus className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                  <span>تصميم من ورقة مرسومة</span>
-                  {!isUserProActive ? (
+                  <span>تصميم من ورقة مرسومة (برو)</span>
+                  {!isAiArProActive ? (
                     <Lock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   ) : (
                     <Crown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
@@ -1014,7 +1021,7 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
               </h2>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                 {isFreePromoMonthActive()
-                  ? 'الشهر المجاني المفتوح مفعّل: يمكنك إنشاء وحفظ عدد غير محدود من المشاريع والوصول لجميع التصاميم والأدوات مجاناً حتى 16 ديسمبر 2026.'
+                  ? 'الشهر المجاني المفتوح مفعّل: يمكنك إنشاء وحفظ عدد غير محدود من المشاريع والوصول للتصاميم مجاناً حتى 16 ديسمبر 2026 (مع بقاء التصميم من ورقة والواقع المعزز والذكاء الاصطناعي لمشتركي برو).'
                   : isGuestSession
                     ? 'أنت تتصفح عبر الدخول المؤقت للعامة (مسموح بإنشاء تصميم واحد فقط). اشترك في نسخة برو للاستفادة من مشاريع غير محدودة.'
                     : `مرحباً ${sessionUser.displayName} (${sessionUser.username}) — ${
@@ -1049,6 +1056,7 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
               >
                 <ImagePlus className="w-3.5 h-3.5" />
                 <span>من ورقة مرسومة (برو)</span>
+                {!isAiArProActive && <Lock className="w-3 h-3" />}
               </button>
               <button
                 type="button"
@@ -1322,7 +1330,11 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
         </section>
 
         {/* Live Algerian Construction, Paint & Labor Cost Calculator */}
-        <AlgeriaCostCalculator onStartPlanFromEstimate={() => onOpenNewBlank()} />
+        <AlgeriaCostCalculator
+          allowAiLiveSync={Boolean(isAiArProActive)}
+          onOpenProUpgrade={() => setShowProSubscribeModal(true)}
+          onStartPlanFromEstimate={onStartGeneratedPlan}
+        />
 
         {/* Pro Subscription (BaridiMob & Flexy +10%) */}
         <ProSubscriptionSection

@@ -2,6 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Maximize2, Minus, Plus } from 'lucide-react';
 import { FLOOR_STYLES } from '../data/catalog';
 import {
+  findWallsForRoom,
+  moveRoomCascade,
+  resizeRoomWithWalls,
+} from '../utils/roomWallUtils';
+import {
   DrawingSpacePreset,
   EditorTool,
   FloorPlanData,
@@ -10,6 +15,8 @@ import {
   Room,
   SelectionTarget,
   SketchUnderlayConfig,
+  StructuralBeam,
+  StructuralColumn,
   UnitType,
   Wall,
 } from '../types/planner';
@@ -20,11 +27,13 @@ interface Canvas2DProps {
   roomPreset?: DrawingSpacePreset;
   selection: SelectionTarget;
   snapEnabled: boolean;
+  autoMeasureEnabled?: boolean;
   isDarkTheme: boolean;
   sketchUnderlay?: SketchUnderlayConfig | null;
   onSelect: (target: SelectionTarget) => void;
   onChangeFloorPlan: (next: FloorPlanData, commitHistory?: boolean) => void;
   onToolResetToSelect: () => void;
+  onCaptureReady?: (captureFn: () => string | null) => void;
 }
 
 function formatLen(meters: number, unit: UnitType): string {
@@ -67,6 +76,8 @@ type DragState =
   | { kind: 'room_resize'; id: string; initial: FloorPlanData }
   | { kind: 'wall_point'; id: string; point: 'p1' | 'p2'; initial: FloorPlanData }
   | { kind: 'opening_slide'; id: string; wall: Wall; initial: FloorPlanData }
+  | { kind: 'column_move'; id: string; offsetX: number; offsetZ: number; initial: FloorPlanData }
+  | { kind: 'beam_point'; id: string; point: 'p1' | 'p2'; initial: FloorPlanData }
   | { kind: 'draw_room'; startX: number; startZ: number; curX: number; curZ: number }
   | null;
 
@@ -76,11 +87,13 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
   roomPreset,
   selection,
   snapEnabled,
+  autoMeasureEnabled = true,
   isDarkTheme,
   sketchUnderlay,
   onSelect,
   onChangeFloorPlan,
   onToolResetToSelect,
+  onCaptureReady,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -88,6 +101,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
   // Camera transform: pixelsPerMeter, pan offset in world meters
   const [view, setView] = useState({ scale: 48, panX: 0, panZ: 0 });
   const [wallDraftStart, setWallDraftStart] = useState<{ x: number; z: number } | null>(null);
+  const [beamDraftStart, setBeamDraftStart] = useState<{ x: number; z: number } | null>(null);
   const [hoverWorld, setHoverWorld] = useState<{ x: number; z: number } | null>(null);
   const dragRef = useRef<DragState>(null);
   const underlayImgRef = useRef<HTMLImageElement | null>(null);
@@ -116,6 +130,19 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
     };
     img.src = sketchUnderlay.dataUrl;
   }, [sketchUnderlay?.dataUrl]);
+
+  useEffect(() => {
+    if (!onCaptureReady) return;
+    onCaptureReady(() => {
+      const c = canvasRef.current;
+      return c ? c.toDataURL('image/png') : null;
+    });
+  }, [onCaptureReady]);
+
+  useEffect(() => {
+    if (activeTool !== 'wall') setWallDraftStart(null);
+    if (activeTool !== 'beam') setBeamDraftStart(null);
+  }, [activeTool]);
 
   const snapVal = useCallback(
     (v: number) => (snapEnabled ? Math.round(v * 4) / 4 : Math.round(v * 20) / 20),
@@ -364,7 +391,9 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
           item.type === 'bean_bag' ||
           item.type === 'brass_tea_table' ||
           item.type === 'water_tank_pump' ||
-          item.type === 'courtyard_fountain'
+          item.type === 'courtyard_fountain' ||
+          item.type === 'maida_low_table' ||
+          item.type === 'tabouna_bread_oven'
         ) {
           ctx.beginPath();
           ctx.arc(0, 0, Math.min(fw, fd) / 2, 0, Math.PI * 2);
@@ -375,23 +404,64 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
             item.type === 'chandelier' ||
             item.type === 'vacuum_robot' ||
             item.type === 'courtyard_fountain' ||
-            item.type === 'brass_tea_table'
+            item.type === 'brass_tea_table' ||
+            item.type === 'maida_low_table'
           ) {
             ctx.fillStyle = item.accentColor;
             ctx.beginPath();
             ctx.arc(0, 0, Math.min(fw, fd) * 0.32, 0, Math.PI * 2);
             ctx.fill();
+          } else if (item.type === 'tabouna_bread_oven') {
+            ctx.strokeStyle = '#EA580C';
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.arc(0, 0, Math.min(fw, fd) * 0.28, 0, Math.PI * 2);
+            ctx.stroke();
           } else if (item.type === 'bean_bag' || item.type === 'water_tank_pump') {
             ctx.strokeStyle = isDarkTheme ? 'rgba(255,255,255,0.4)' : 'rgba(15,23,42,0.35)';
             ctx.beginPath();
             ctx.arc(0, 0, Math.min(fw, fd) * 0.25, 0, Math.PI * 2);
             ctx.stroke();
           }
+        } else if (item.type === 'potager_curved') {
+          ctx.globalAlpha = 0.9;
+          ctx.beginPath();
+          ctx.moveTo(-fw / 2, -fd / 2);
+          ctx.lineTo(fw / 2, -fd / 2);
+          ctx.lineTo(fw / 2, fd * 0.24);
+          ctx.quadraticCurveTo(0, fd * 0.66, -fw / 2, fd * 0.24);
+          ctx.closePath();
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.stroke();
+          ctx.strokeStyle = isDarkTheme ? 'rgba(255,255,255,0.38)' : 'rgba(15,23,42,0.38)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(-fw * 0.18, -fd * 0.34, fw * 0.36, fd * 0.44);
+        } else if (item.type === 'potager_corner') {
+          const leg = Math.min(fw, fd) * 0.44;
+          ctx.globalAlpha = 0.9;
+          ctx.beginPath();
+          ctx.moveTo(-fw / 2, -fd / 2);
+          ctx.lineTo(fw / 2, -fd / 2);
+          ctx.lineTo(fw / 2, -fd / 2 + leg);
+          ctx.lineTo(-fw / 2 + leg, -fd / 2 + leg);
+          ctx.lineTo(-fw / 2 + leg, fd / 2);
+          ctx.lineTo(-fw / 2, fd / 2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.stroke();
+          ctx.strokeStyle = isDarkTheme ? 'rgba(255,255,255,0.38)' : 'rgba(15,23,42,0.38)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(fw * 0.05, -fd / 2 + leg * 0.18, fw * 0.3, leg * 0.64);
         } else {
-          ctx.globalAlpha = item.type === 'rug' ? 0.45 : 0.88;
+          ctx.globalAlpha =
+            item.type === 'rug' ? 0.45 : item.type === 'kitchen_wall_cupboard_dz' ? 0.66 : 0.88;
+          if (item.type === 'kitchen_wall_cupboard_dz') ctx.setLineDash([4, 3]);
           ctx.fillRect(-fw / 2, -fd / 2, fw, fd);
           ctx.globalAlpha = 1;
           ctx.strokeRect(-fw / 2, -fd / 2, fw, fd);
+          ctx.setLineDash([]);
 
           // Inner architectural CAD details
           ctx.strokeStyle = isDarkTheme ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.35)';
@@ -457,7 +527,8 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
             item.type === 'bed_double' ||
             item.type === 'bed_single' ||
             item.type === 'bunk_bed' ||
-            item.type === 'underbed_storage_bed'
+            item.type === 'underbed_storage_bed' ||
+            item.type === 'matrah_traditional_bed'
           ) {
             ctx.fillStyle = '#FFFFFF';
             if (item.type === 'bed_double' || item.type === 'underbed_storage_bed') {
@@ -501,8 +572,56 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
             ctx.beginPath();
             ctx.roundRect(-fw * 0.42, -fd * 0.38, fw * 0.84, fd * 0.76, 10);
             ctx.stroke();
-          } else if (item.type === 'kitchen_counter' || item.type === 'couscous_prep_counter') {
-            ctx.strokeRect(fw * 0.05, -fd * 0.3, fw * 0.26, fd * 0.6);
+          } else if (
+            item.type === 'kitchen_counter' ||
+            item.type === 'couscous_prep_counter' ||
+            item.type === 'potager_straight'
+          ) {
+            ctx.strokeRect(fw * 0.05, -fd * 0.3, fw * 0.28, fd * 0.6);
+            ctx.beginPath();
+            ctx.arc(fw * 0.19, 0, Math.min(fw, fd) * 0.08, 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (item.type === 'dish_rack_counter_dz') {
+            for (let i = -3; i <= 3; i++) {
+              ctx.beginPath();
+              ctx.moveTo((fw / 9) * i, -fd * 0.32);
+              ctx.lineTo((fw / 9) * i, fd * 0.32);
+              ctx.stroke();
+            }
+          } else if (item.type === 'kitchen_wall_cupboard_dz') {
+            ctx.beginPath();
+            ctx.moveTo(0, -fd / 2);
+            ctx.lineTo(0, fd / 2);
+            ctx.stroke();
+          } else if (item.type === 'toilet_arabic') {
+            ctx.strokeRect(-fw * 0.34, -fd * 0.32, fw * 0.22, fd * 0.64);
+            ctx.strokeRect(fw * 0.12, -fd * 0.32, fw * 0.22, fd * 0.64);
+            ctx.beginPath();
+            ctx.arc(0, -fd * 0.16, Math.min(fw, fd) * 0.14, 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (item.type === 'toilet_anglaise') {
+            ctx.strokeRect(-fw * 0.36, -fd * 0.42, fw * 0.72, fd * 0.24);
+            ctx.beginPath();
+            ctx.ellipse(0, fd * 0.12, fw * 0.28, fd * 0.28, 0, 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (item.type === 'shower_standard') {
+            ctx.strokeRect(-fw * 0.42, -fd * 0.42, fw * 0.84, fd * 0.84);
+            ctx.beginPath();
+            ctx.arc(0, 0, Math.min(fw, fd) * 0.1, 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (item.type === 'shower_italian') {
+            ctx.strokeRect(-fw * 0.34, fd * 0.28, fw * 0.68, Math.max(2, fd * 0.08));
+            ctx.beginPath();
+            ctx.moveTo(-fw / 2, -fd / 2);
+            ctx.lineTo(fw / 2, -fd / 2);
+            ctx.stroke();
+          } else if (item.type === 'shower_arabic_hammam') {
+            ctx.strokeRect(-fw * 0.44, -fd * 0.4, fw * 0.34, fd * 0.8);
+            ctx.beginPath();
+            ctx.arc(fw * 0.2, fd * 0.1, Math.min(fw, fd) * 0.16, 0, Math.PI * 2);
+            ctx.stroke();
+          } else if (item.type === 'sewing_machine_table') {
+            ctx.strokeRect(-fw * 0.28, -fd * 0.2, fw * 0.56, fd * 0.28);
           } else if (item.type === 'double_vanity') {
             ctx.beginPath();
             ctx.arc(-fw * 0.25, 0, Math.min(fw * 0.16, fd * 0.28), 0, Math.PI * 2);
@@ -576,7 +695,17 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         ctx.restore();
       });
 
-      // 3. Walls
+      // 3. Walls (with Auto-Measure dimension callouts on selected wall or selected room perimeter)
+      const selectedRoomWallIds = new Set<string>();
+      if (autoMeasureEnabled && selection?.kind === 'room') {
+        const selRoom = floorPlan.rooms.find((r) => r.id === selection.id);
+        if (selRoom) {
+          findWallsForRoom(selRoom, floorPlan.walls).allMatchedIds.forEach((id) =>
+            selectedRoomWallIds.add(id)
+          );
+        }
+      }
+
       floorPlan.walls.forEach((wall) => {
         const x1 = toSX(wall.x1);
         const y1 = toSY(wall.z1);
@@ -584,36 +713,58 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         const y2 = toSY(wall.z2);
         const thickPx = Math.max(5, (wall.thickness || 0.16) * view.scale);
         const isSel = selection?.kind === 'wall' && selection.id === wall.id;
+        const isRoomWallHighlight = autoMeasureEnabled && selectedRoomWallIds.has(wall.id);
 
         ctx.save();
         ctx.lineCap = 'square';
-        ctx.strokeStyle = isSel ? '#2563EB' : isDarkTheme ? '#E2E8F0' : '#1E293B';
+        ctx.strokeStyle = isSel
+          ? '#2563EB'
+          : isRoomWallHighlight
+            ? '#0284C7'
+            : isDarkTheme
+              ? '#E2E8F0'
+              : '#1E293B';
         ctx.lineWidth = thickPx + 2;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
         ctx.stroke();
 
-        ctx.strokeStyle = isSel ? '#DBEAFE' : wall.color || '#F5F2EB';
+        ctx.strokeStyle = isSel
+          ? '#DBEAFE'
+          : isRoomWallHighlight
+            ? '#E0F2FE'
+            : wall.color || '#F5F2EB';
         ctx.lineWidth = Math.max(2, thickPx - 2);
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
         ctx.stroke();
 
-        // Wall length callout if selected
-        if (isSel) {
+        // Wall length callout if selected OR auto-measure enabled on active room perimeter
+        const showDimBadge = isSel || (autoMeasureEnabled && isRoomWallHighlight);
+        if (showDimBadge) {
           const wallLen = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
           const mx = (x1 + x2) / 2;
           const my = (y1 + y2) / 2;
-          ctx.fillStyle = '#2563EB';
-          ctx.fillRect(mx - 32, my - 22, 64, 18);
+          const segPx = Math.hypot(x2 - x1, y2 - y1) || 1;
+          const nx = -(y2 - y1) / segPx;
+          const ny = (x2 - x1) / segPx;
+          const labelX = mx + nx * 16;
+          const labelY = my + ny * 16;
+
+          ctx.fillStyle = isSel ? '#2563EB' : '#0284C7';
+          ctx.beginPath();
+          ctx.roundRect(labelX - 30, labelY - 9, 60, 18, 4);
+          ctx.fill();
           ctx.fillStyle = '#FFFFFF';
-          ctx.font = '500 10px "IBM Plex Mono", monospace';
+          ctx.font = '600 10px "IBM Plex Mono", monospace';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(formatLen(wallLen, floorPlan.unit), mx, my - 13);
+          ctx.fillText(formatLen(wallLen, floorPlan.unit), labelX, labelY);
+        }
 
+        if (isSel) {
           // Endpoint handles
           [
             [x1, y1],
@@ -700,13 +851,112 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         ctx.restore();
       });
 
+      // 4.5 Structural Beams (السوانتر) & Columns (البيليات) when structural layer is enabled
+      if (floorPlan.showStructureLayer !== false) {
+        (floorPlan.beams || []).forEach((beam) => {
+          const x1 = toSX(beam.x1);
+          const y1 = toSY(beam.z1);
+          const x2 = toSX(beam.x2);
+          const y2 = toSY(beam.z2);
+          const thickPx = Math.max(4, (beam.width || 0.24) * view.scale);
+          const isSel = selection?.kind === 'beam' && selection.id === beam.id;
+
+          ctx.save();
+          ctx.strokeStyle = isSel ? 'rgba(37,99,235,0.42)' : 'rgba(71,85,105,0.32)';
+          ctx.lineWidth = thickPx + 2;
+          ctx.lineCap = 'butt';
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+
+          ctx.strokeStyle = isSel ? '#2563EB' : '#D97706';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 4]);
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          if (isSel) {
+            [
+              [x1, y1],
+              [x2, y2],
+            ].forEach(([px, py]) => {
+              ctx.fillStyle = '#2563EB';
+              ctx.beginPath();
+              ctx.arc(px, py, 6, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.strokeStyle = '#FFFFFF';
+              ctx.lineWidth = 2;
+              ctx.stroke();
+            });
+          }
+
+          if (isSel || autoMeasureEnabled) {
+            const len = Math.hypot(beam.x2 - beam.x1, beam.z2 - beam.z1);
+            if (isSel && len > 0.3) {
+              const mx = (x1 + x2) / 2;
+              const my = (y1 + y2) / 2;
+              ctx.fillStyle = '#B45309';
+              ctx.beginPath();
+              ctx.roundRect(mx - 34, my - 9, 68, 18, 4);
+              ctx.fill();
+              ctx.fillStyle = '#FFFFFF';
+              ctx.font = '600 10px "IBM Plex Mono", monospace';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(`S ${formatLen(len, floorPlan.unit)}`, mx, my);
+            }
+          }
+          ctx.restore();
+        });
+
+        (floorPlan.columns || []).forEach((col, cIdx) => {
+          const cx = toSX(col.x);
+          const cy = toSY(col.z);
+          const cw = Math.max(10, (col.width || 0.3) * view.scale);
+          const cd = Math.max(10, (col.depth || 0.3) * view.scale);
+          const isSel = selection?.kind === 'column' && selection.id === col.id;
+
+          ctx.save();
+          ctx.fillStyle = isSel ? '#2563EB' : col.color || '#334155';
+          ctx.fillRect(cx - cw / 2, cy - cd / 2, cw, cd);
+          ctx.strokeStyle = isSel ? '#93C5FD' : '#F8FAFC';
+          ctx.lineWidth = isSel ? 2.5 : 1.3;
+          ctx.strokeRect(cx - cw / 2, cy - cd / 2, cw, cd);
+
+          // Concrete pillar diagonal X-hatch
+          ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(cx - cw / 2 + 2, cy - cd / 2 + 2);
+          ctx.lineTo(cx + cw / 2 - 2, cy + cd / 2 - 2);
+          ctx.moveTo(cx + cw / 2 - 2, cy - cd / 2 + 2);
+          ctx.lineTo(cx - cw / 2 + 2, cy + cd / 2 - 2);
+          ctx.stroke();
+
+          if (view.scale >= 34 || isSel) {
+            ctx.fillStyle = isDarkTheme ? '#F8FAFC' : '#0F172A';
+            ctx.font = '700 9px "IBM Plex Mono", monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(col.label || `P${cIdx + 1}`, cx, cy - cd / 2 - 2);
+          }
+          ctx.restore();
+        });
+      }
+
       // 5. Active Drawing Previews (Room or Wall)
       if (dragRef.current?.kind === 'draw_room') {
         const dr = dragRef.current;
         const x1 = toSX(Math.min(dr.startX, dr.curX));
         const y1 = toSY(Math.min(dr.startZ, dr.curZ));
-        const rw = Math.abs(dr.curX - dr.startX) * view.scale;
-        const rd = Math.abs(dr.curZ - dr.startZ) * view.scale;
+        const rwM = Math.abs(dr.curX - dr.startX);
+        const rdM = Math.abs(dr.curZ - dr.startZ);
+        const rw = rwM * view.scale;
+        const rd = rdM * view.scale;
         ctx.save();
         ctx.fillStyle = 'rgba(37, 99, 235, 0.14)';
         ctx.strokeStyle = '#2563EB';
@@ -717,10 +967,22 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         ctx.font = '600 12px "IBM Plex Mono", monospace';
         ctx.textAlign = 'center';
         ctx.fillText(
-          `${roomPreset ? `${roomPreset.roomName} · ` : ''}${formatLen(Math.abs(dr.curX - dr.startX), floorPlan.unit)} × ${formatLen(Math.abs(dr.curZ - dr.startZ), floorPlan.unit)}`,
+          `${roomPreset ? `${roomPreset.roomName} · ` : ''}${formatLen(rwM, floorPlan.unit)} × ${formatLen(rdM, floorPlan.unit)}`,
           x1 + rw / 2,
-          y1 - 10
+          y1 - 12
         );
+        if (autoMeasureEnabled && rw > 35 && rd > 35) {
+          ctx.fillStyle = '#0284C7';
+          ctx.beginPath();
+          ctx.roundRect(x1 + rw / 2 - 28, y1 + rd + 5, 56, 17, 4);
+          ctx.roundRect(x1 + rw + 6, y1 + rd / 2 - 9, 56, 17, 4);
+          ctx.fill();
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = '600 10px "IBM Plex Mono", monospace';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(formatLen(rwM, floorPlan.unit), x1 + rw / 2, y1 + rd + 13.5);
+          ctx.fillText(formatLen(rdM, floorPlan.unit), x1 + rw + 34, y1 + rd / 2 - 0.5);
+        }
         ctx.restore();
       }
 
@@ -729,7 +991,10 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         const sy1 = toSY(wallDraftStart.z);
         const sx2 = toSX(hoverWorld.x);
         const sy2 = toSY(hoverWorld.z);
-        const len = Math.hypot(hoverWorld.x - wallDraftStart.x, hoverWorld.z - wallDraftStart.z);
+        const dxW = hoverWorld.x - wallDraftStart.x;
+        const dzW = hoverWorld.z - wallDraftStart.z;
+        const len = Math.hypot(dxW, dzW);
+        const angleDeg = Math.round((Math.atan2(dzW, dxW) * 180) / Math.PI);
         ctx.save();
         ctx.strokeStyle = '#2563EB';
         ctx.lineWidth = 6;
@@ -739,9 +1004,62 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         ctx.lineTo(sx2, sy2);
         ctx.stroke();
         ctx.setLineDash([]);
+        const labelText = autoMeasureEnabled
+          ? `${formatLen(len, floorPlan.unit)} · ${angleDeg}°`
+          : formatLen(len, floorPlan.unit);
+        const mx = (sx1 + sx2) / 2;
+        const my = (sy1 + sy2) / 2 - 16;
         ctx.fillStyle = '#2563EB';
-        ctx.font = '600 12px "IBM Plex Mono", monospace';
-        ctx.fillText(formatLen(len, floorPlan.unit), (sx1 + sx2) / 2, (sy1 + sy2) / 2 - 12);
+        ctx.beginPath();
+        ctx.roundRect(mx - 44, my - 10, 88, 20, 5);
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '600 11px "IBM Plex Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(labelText, mx, my);
+        ctx.restore();
+      }
+
+      if (activeTool === 'column' && hoverWorld) {
+        const cx = toSX(hoverWorld.x);
+        const cy = toSY(hoverWorld.z);
+        const cw = Math.max(12, 0.3 * view.scale);
+        ctx.save();
+        ctx.fillStyle = 'rgba(37, 99, 235, 0.45)';
+        ctx.strokeStyle = '#2563EB';
+        ctx.lineWidth = 2;
+        ctx.fillRect(cx - cw / 2, cy - cw / 2, cw, cw);
+        ctx.strokeRect(cx - cw / 2, cy - cw / 2, cw, cw);
+        ctx.restore();
+      }
+
+      if (activeTool === 'beam' && beamDraftStart && hoverWorld) {
+        const sx1 = toSX(beamDraftStart.x);
+        const sy1 = toSY(beamDraftStart.z);
+        const sx2 = toSX(hoverWorld.x);
+        const sy2 = toSY(hoverWorld.z);
+        const len = Math.hypot(hoverWorld.x - beamDraftStart.x, hoverWorld.z - beamDraftStart.z);
+        ctx.save();
+        ctx.strokeStyle = '#D97706';
+        ctx.lineWidth = Math.max(6, 0.24 * view.scale);
+        ctx.globalAlpha = 0.45;
+        ctx.beginPath();
+        ctx.moveTo(sx1, sy1);
+        ctx.lineTo(sx2, sy2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#B45309';
+        const mx = (sx1 + sx2) / 2;
+        const my = (sy1 + sy2) / 2 - 14;
+        ctx.beginPath();
+        ctx.roundRect(mx - 42, my - 10, 84, 20, 5);
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '600 10px "IBM Plex Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`سانتر ${formatLen(len, floorPlan.unit)}`, mx, my);
         ctx.restore();
       }
 
@@ -759,10 +1077,12 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
     isDarkTheme,
     activeTool,
     wallDraftStart,
+    beamDraftStart,
     hoverWorld,
     sketchUnderlay,
     underlayRevision,
     roomPreset,
+    autoMeasureEnabled,
   ]);
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
@@ -849,6 +1169,62 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
           onSelect({ kind: 'wall', id: newWall.id });
         }
         setWallDraftStart(null);
+      }
+      return;
+    }
+
+    if (activeTool === 'column') {
+      const cols = floorPlan.columns || [];
+      const newCol: StructuralColumn = {
+        id: `col_${Date.now()}`,
+        x: wx,
+        z: wz,
+        width: 0.3,
+        depth: 0.3,
+        height: floorPlan.wallHeight,
+        label: `P${cols.length + 1}`,
+        color: '#475569',
+      };
+      onChangeFloorPlan(
+        {
+          ...floorPlan,
+          showStructureLayer: true,
+          columns: [...cols, newCol],
+        },
+        true
+      );
+      onSelect({ kind: 'column', id: newCol.id });
+      return;
+    }
+
+    if (activeTool === 'beam') {
+      if (!beamDraftStart) {
+        setBeamDraftStart({ x: wx, z: wz });
+      } else {
+        if (Math.hypot(wx - beamDraftStart.x, wz - beamDraftStart.z) >= 0.4) {
+          const beams = floorPlan.beams || [];
+          const newBeam: StructuralBeam = {
+            id: `beam_${Date.now()}`,
+            x1: beamDraftStart.x,
+            z1: beamDraftStart.z,
+            x2: wx,
+            z2: wz,
+            width: 0.24,
+            height: 0.35,
+            label: `S${beams.length + 1}`,
+            color: '#475569',
+          };
+          onChangeFloorPlan(
+            {
+              ...floorPlan,
+              showStructureLayer: true,
+              beams: [...beams, newBeam],
+            },
+            true
+          );
+          onSelect({ kind: 'beam', id: newBeam.id });
+        }
+        setBeamDraftStart(null);
       }
       return;
     }
@@ -950,6 +1326,41 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
       }
     }
 
+    // 3.5. Check beam endpoint handles & hit-test structural columns/beams when visible
+    if (floorPlan.showStructureLayer !== false) {
+      if (selection?.kind === 'beam') {
+        const selBeam = (floorPlan.beams || []).find((b) => b.id === selection.id);
+        if (selBeam) {
+          if (Math.hypot(rawWorld.x - selBeam.x1, rawWorld.z - selBeam.z1) < handleHitPx / view.scale) {
+            dragRef.current = { kind: 'beam_point', id: selBeam.id, point: 'p1', initial: floorPlan };
+            return;
+          }
+          if (Math.hypot(rawWorld.x - selBeam.x2, rawWorld.z - selBeam.z2) < handleHitPx / view.scale) {
+            dragRef.current = { kind: 'beam_point', id: selBeam.id, point: 'p2', initial: floorPlan };
+            return;
+          }
+        }
+      }
+
+      const colPad = isTouch ? 0.24 : 0.14;
+      for (const col of [...(floorPlan.columns || [])].reverse()) {
+        if (
+          Math.abs(rawWorld.x - col.x) <= col.width / 2 + colPad &&
+          Math.abs(rawWorld.z - col.z) <= col.depth / 2 + colPad
+        ) {
+          onSelect({ kind: 'column', id: col.id });
+          dragRef.current = {
+            kind: 'column_move',
+            id: col.id,
+            offsetX: col.x - rawWorld.x,
+            offsetZ: col.z - rawWorld.z,
+            initial: floorPlan,
+          };
+          return;
+        }
+      }
+    }
+
     // 4. Hit-test furniture (topmost first, excluding rugs unless clicked away from items)
     const furnPad = isTouch ? 0.24 : 0.12;
     const sortedFurn = [...floorPlan.furniture].reverse().sort((a, b) => {
@@ -987,6 +1398,17 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
         onSelect({ kind: 'opening', id: op.id });
         dragRef.current = { kind: 'opening_slide', id: op.id, wall, initial: floorPlan };
         return;
+      }
+    }
+
+    // 5.5. Hit-test beams when structural layer is visible
+    if (floorPlan.showStructureLayer !== false) {
+      for (const beam of floorPlan.beams || []) {
+        const hit = distToSegment(rawWorld.x, rawWorld.z, beam.x1, beam.z1, beam.x2, beam.z2);
+        if (hit.dist < Math.max(isTouch ? 0.34 : 0.22, (beam.width || 0.24) / 2 + 0.1)) {
+          onSelect({ kind: 'beam', id: beam.id });
+          return;
+        }
       }
     }
 
@@ -1115,15 +1537,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
     if (drag.kind === 'room_move') {
       const nx = snapVal(rawWorld.x + drag.offsetX);
       const nz = snapVal(rawWorld.z + drag.offsetZ);
-      onChangeFloorPlan(
-        {
-          ...latestPlanRef.current,
-          rooms: latestPlanRef.current.rooms.map((r) =>
-            r.id === drag.id ? { ...r, x: nx, z: nz } : r
-          ),
-        },
-        false
-      );
+      onChangeFloorPlan(moveRoomCascade(latestPlanRef.current, drag.id, nx, nz, true), false);
       return;
     }
 
@@ -1132,15 +1546,7 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
       if (!target) return;
       const nw = Math.max(1.5, snapVal(rawWorld.x - target.x));
       const nd = Math.max(1.5, snapVal(rawWorld.z - target.z));
-      onChangeFloorPlan(
-        {
-          ...latestPlanRef.current,
-          rooms: latestPlanRef.current.rooms.map((r) =>
-            r.id === drag.id ? { ...r, width: nw, depth: nd } : r
-          ),
-        },
-        false
-      );
+      onChangeFloorPlan(resizeRoomWithWalls(latestPlanRef.current, drag.id, nw, nd), false);
       return;
     }
 
@@ -1151,6 +1557,35 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
           walls: latestPlanRef.current.walls.map((w) => {
             if (w.id !== drag.id) return w;
             return drag.point === 'p1' ? { ...w, x1: sx, z1: sz } : { ...w, x2: sx, z2: sz };
+          }),
+        },
+        false
+      );
+      return;
+    }
+
+    if (drag.kind === 'column_move') {
+      const nx = snapVal(rawWorld.x + drag.offsetX);
+      const nz = snapVal(rawWorld.z + drag.offsetZ);
+      onChangeFloorPlan(
+        {
+          ...latestPlanRef.current,
+          columns: (latestPlanRef.current.columns || []).map((c) =>
+            c.id === drag.id ? { ...c, x: nx, z: nz } : c
+          ),
+        },
+        false
+      );
+      return;
+    }
+
+    if (drag.kind === 'beam_point') {
+      onChangeFloorPlan(
+        {
+          ...latestPlanRef.current,
+          beams: (latestPlanRef.current.beams || []).map((b) => {
+            if (b.id !== drag.id) return b;
+            return drag.point === 'p1' ? { ...b, x1: sx, z1: sz } : { ...b, x2: sx, z2: sz };
           }),
         },
         false
@@ -1312,6 +1747,11 @@ export const Canvas2D: React.FC<Canvas2DProps> = ({
           {activeTool === 'door' && 'انقر على أي جدار لإضافة باب في الموضع المحدد'}
           {activeTool === 'window' && 'انقر على أي جدار لإضافة نافذة زجاجية'}
           {activeTool === 'arch' && 'انقر على أي جدار لفتح قوس معماري (بين الصالة والهول)'}
+          {activeTool === 'column' && 'انقر على المخطط أو زوايا الجدران لوضع عمود خرساني (بيلي)'}
+          {activeTool === 'beam' &&
+            (beamDraftStart
+              ? 'انقر لتحديد نقطة نهاية السانتر (الحزام الخرساني)'
+              : 'انقر لتحديد نقطة بداية السانتر (الحزام الخرساني)')}
         </div>
       )}
 

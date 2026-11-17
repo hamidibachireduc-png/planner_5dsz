@@ -159,7 +159,9 @@ function drawFurnitureBlueprintSymbol(
     item.type === 'bean_bag' ||
     item.type === 'brass_tea_table' ||
     item.type === 'water_tank_pump' ||
-    item.type === 'courtyard_fountain';
+    item.type === 'courtyard_fountain' ||
+    item.type === 'maida_low_table' ||
+    item.type === 'tabouna_bread_oven';
 
   if (isCircle) {
     const rad = Math.min(fw, fd) / 2;
@@ -173,23 +175,60 @@ function drawFurnitureBlueprintSymbol(
       item.type === 'chandelier' ||
       item.type === 'vacuum_robot' ||
       item.type === 'courtyard_fountain' ||
-      item.type === 'brass_tea_table'
+      item.type === 'brass_tea_table' ||
+      item.type === 'maida_low_table'
     ) {
       ctx.fillStyle = item.accentColor;
       ctx.beginPath();
       ctx.arc(0, 0, rad * 0.6, 0, Math.PI * 2);
       ctx.fill();
+    } else if (item.type === 'tabouna_bread_oven') {
+      ctx.strokeStyle = '#EA580C';
+      ctx.beginPath();
+      ctx.arc(0, 0, rad * 0.56, 0, Math.PI * 2);
+      ctx.stroke();
     } else if (item.type === 'bean_bag' || item.type === 'water_tank_pump') {
       ctx.strokeStyle = 'rgba(15,23,42,0.4)';
       ctx.beginPath();
       ctx.arc(0, 0, rad * 0.5, 0, Math.PI * 2);
       ctx.stroke();
     }
+  } else if (item.type === 'potager_curved') {
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(-fw / 2, -fd / 2);
+    ctx.lineTo(fw / 2, -fd / 2);
+    ctx.lineTo(fw / 2, fd * 0.25);
+    ctx.quadraticCurveTo(0, fd * 0.65, -fw / 2, fd * 0.25);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(15,23,42,0.45)';
+    ctx.strokeRect(-fw * 0.18, -fd * 0.34, fw * 0.36, fd * 0.44);
+  } else if (item.type === 'potager_corner') {
+    const leg = Math.min(fw, fd) * 0.44;
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(-fw / 2, -fd / 2);
+    ctx.lineTo(fw / 2, -fd / 2);
+    ctx.lineTo(fw / 2, -fd / 2 + leg);
+    ctx.lineTo(-fw / 2 + leg, -fd / 2 + leg);
+    ctx.lineTo(-fw / 2 + leg, fd / 2);
+    ctx.lineTo(-fw / 2, fd / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(15,23,42,0.45)';
+    ctx.strokeRect(fw * 0.05, -fd / 2 + leg * 0.18, fw * 0.3, leg * 0.64);
   } else {
-    ctx.globalAlpha = item.type === 'rug' ? 0.38 : 0.88;
+    ctx.globalAlpha = item.type === 'rug' ? 0.38 : item.type === 'kitchen_wall_cupboard_dz' ? 0.65 : 0.88;
+    if (item.type === 'kitchen_wall_cupboard_dz') ctx.setLineDash([4, 3]);
     ctx.fillRect(-fw / 2, -fd / 2, fw, fd);
     ctx.globalAlpha = 1;
     ctx.strokeRect(-fw / 2, -fd / 2, fw, fd);
+    ctx.setLineDash([]);
 
     ctx.strokeStyle = 'rgba(15,23,42,0.4)';
     ctx.lineWidth = 1;
@@ -249,7 +288,8 @@ function drawFurnitureBlueprintSymbol(
       item.type === 'bed_double' ||
       item.type === 'bed_single' ||
       item.type === 'bunk_bed' ||
-      item.type === 'underbed_storage_bed'
+      item.type === 'underbed_storage_bed' ||
+      item.type === 'matrah_traditional_bed'
     ) {
       ctx.fillStyle = '#FFFFFF';
       if (item.type === 'bed_double' || item.type === 'underbed_storage_bed') {
@@ -287,8 +327,56 @@ function drawFurnitureBlueprintSymbol(
       ctx.beginPath();
       ctx.roundRect(-fw * 0.42, -fd * 0.38, fw * 0.84, fd * 0.76, 6);
       ctx.stroke();
-    } else if (item.type === 'kitchen_counter' || item.type === 'couscous_prep_counter') {
-      ctx.strokeRect(fw * 0.05, -fd * 0.3, fw * 0.26, fd * 0.6);
+    } else if (
+      item.type === 'kitchen_counter' ||
+      item.type === 'couscous_prep_counter' ||
+      item.type === 'potager_straight'
+    ) {
+      ctx.strokeRect(fw * 0.05, -fd * 0.3, fw * 0.28, fd * 0.6);
+      ctx.beginPath();
+      ctx.arc(fw * 0.19, 0, Math.min(fw, fd) * 0.08, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (item.type === 'dish_rack_counter_dz') {
+      for (let i = -3; i <= 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo((fw / 9) * i, -fd * 0.32);
+        ctx.lineTo((fw / 9) * i, fd * 0.32);
+        ctx.stroke();
+      }
+    } else if (item.type === 'kitchen_wall_cupboard_dz') {
+      ctx.beginPath();
+      ctx.moveTo(0, -fd / 2);
+      ctx.lineTo(0, fd / 2);
+      ctx.stroke();
+    } else if (item.type === 'toilet_arabic') {
+      ctx.strokeRect(-fw * 0.34, -fd * 0.32, fw * 0.22, fd * 0.64);
+      ctx.strokeRect(fw * 0.12, -fd * 0.32, fw * 0.22, fd * 0.64);
+      ctx.beginPath();
+      ctx.arc(0, -fd * 0.16, Math.min(fw, fd) * 0.14, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (item.type === 'toilet_anglaise') {
+      ctx.strokeRect(-fw * 0.36, -fd * 0.42, fw * 0.72, fd * 0.24);
+      ctx.beginPath();
+      ctx.ellipse(0, fd * 0.12, fw * 0.28, fd * 0.28, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (item.type === 'shower_standard') {
+      ctx.strokeRect(-fw * 0.42, -fd * 0.42, fw * 0.84, fd * 0.84);
+      ctx.beginPath();
+      ctx.arc(0, 0, Math.min(fw, fd) * 0.1, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (item.type === 'shower_italian') {
+      ctx.strokeRect(-fw * 0.34, fd * 0.28, fw * 0.68, Math.max(2, fd * 0.08));
+      ctx.beginPath();
+      ctx.moveTo(-fw / 2, -fd / 2);
+      ctx.lineTo(fw / 2, -fd / 2);
+      ctx.stroke();
+    } else if (item.type === 'shower_arabic_hammam') {
+      ctx.strokeRect(-fw * 0.44, -fd * 0.4, fw * 0.34, fd * 0.8);
+      ctx.beginPath();
+      ctx.arc(fw * 0.2, fd * 0.1, Math.min(fw, fd) * 0.16, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (item.type === 'sewing_machine_table') {
+      ctx.strokeRect(-fw * 0.28, -fd * 0.2, fw * 0.56, fd * 0.28);
     } else if (item.type === 'double_vanity') {
       ctx.beginPath();
       ctx.arc(-fw * 0.25, 0, Math.min(fw * 0.16, fd * 0.28), 0, Math.PI * 2);

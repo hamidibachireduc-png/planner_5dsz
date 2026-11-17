@@ -60,7 +60,9 @@ function drawFurnitureCadSymbol(
     item.type === 'vacuum_robot' ||
     item.type === 'water_tank_pump' ||
     item.type === 'courtyard_fountain' ||
-    item.type === 'brass_tea_table'
+    item.type === 'brass_tea_table' ||
+    item.type === 'maida_low_table' ||
+    item.type === 'tabouna_bread_oven'
   ) {
     const rad = Math.min(fw, fd) / 2;
     ctx.globalAlpha = 0.88;
@@ -69,11 +71,38 @@ function drawFurnitureCadSymbol(
     ctx.fill();
     ctx.globalAlpha = 1;
     ctx.stroke();
+  } else if (item.type === 'potager_curved') {
+    ctx.globalAlpha = 0.88;
+    ctx.beginPath();
+    ctx.moveTo(-fw / 2, -fd / 2);
+    ctx.lineTo(fw / 2, -fd / 2);
+    ctx.lineTo(fw / 2, fd * 0.25);
+    ctx.quadraticCurveTo(0, fd * 0.65, -fw / 2, fd * 0.25);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.stroke();
+  } else if (item.type === 'potager_corner') {
+    const leg = Math.min(fw, fd) * 0.44;
+    ctx.globalAlpha = 0.88;
+    ctx.beginPath();
+    ctx.moveTo(-fw / 2, -fd / 2);
+    ctx.lineTo(fw / 2, -fd / 2);
+    ctx.lineTo(fw / 2, -fd / 2 + leg);
+    ctx.lineTo(-fw / 2 + leg, -fd / 2 + leg);
+    ctx.lineTo(-fw / 2 + leg, fd / 2);
+    ctx.lineTo(-fw / 2, fd / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.stroke();
   } else {
-    ctx.globalAlpha = item.type === 'rug' ? 0.4 : 0.85;
+    ctx.globalAlpha = item.type === 'rug' ? 0.4 : item.type === 'kitchen_wall_cupboard_dz' ? 0.65 : 0.85;
+    if (item.type === 'kitchen_wall_cupboard_dz') ctx.setLineDash([4, 3]);
     ctx.fillRect(-fw / 2, -fd / 2, fw, fd);
     ctx.globalAlpha = 1;
     ctx.strokeRect(-fw / 2, -fd / 2, fw, fd);
+    ctx.setLineDash([]);
 
     ctx.strokeStyle = 'rgba(15, 23, 42, 0.5)';
     ctx.lineWidth = 1;
@@ -95,11 +124,30 @@ function drawFurnitureCadSymbol(
       item.type === 'bed_double' ||
       item.type === 'bed_single' ||
       item.type === 'bunk_bed' ||
-      item.type === 'underbed_storage_bed'
+      item.type === 'underbed_storage_bed' ||
+      item.type === 'matrah_traditional_bed'
     ) {
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(-fw * 0.36, -fd * 0.42, fw * 0.72, fd * 0.18);
       ctx.strokeRect(-fw * 0.36, -fd * 0.42, fw * 0.72, fd * 0.18);
+    } else if (item.type === 'potager_straight') {
+      ctx.strokeRect(fw * 0.05, -fd * 0.3, fw * 0.28, fd * 0.6);
+    } else if (item.type === 'toilet_arabic') {
+      ctx.strokeRect(-fw * 0.34, -fd * 0.32, fw * 0.22, fd * 0.64);
+      ctx.strokeRect(fw * 0.12, -fd * 0.32, fw * 0.22, fd * 0.64);
+    } else if (item.type === 'toilet_anglaise') {
+      ctx.strokeRect(-fw * 0.36, -fd * 0.42, fw * 0.72, fd * 0.24);
+      ctx.beginPath();
+      ctx.ellipse(0, fd * 0.12, fw * 0.28, fd * 0.28, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (
+      item.type === 'shower_standard' ||
+      item.type === 'shower_italian' ||
+      item.type === 'shower_arabic_hammam'
+    ) {
+      ctx.beginPath();
+      ctx.arc(0, 0, Math.min(fw, fd) * 0.12, 0, Math.PI * 2);
+      ctx.stroke();
     } else if (item.type === 'garage_car') {
       ctx.beginPath();
       ctx.roundRect(-fw * 0.44, -fd * 0.46, fw * 0.88, fd * 0.92, 5);
