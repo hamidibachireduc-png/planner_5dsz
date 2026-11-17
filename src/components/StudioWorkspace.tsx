@@ -4284,6 +4284,14 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                 setShowCostModal(false);
                 onOpenProUpgrade?.();
               }}
+              onStartPlanFromEstimate={(payload) => {
+                updateFloorPlan(payload.floorPlan, true);
+                if (payload.title && (title === 'منزل جديد' || title.startsWith('مخطط '))) {
+                  setTitle(payload.title);
+                }
+                setSelection(null);
+                setShowCostModal(false);
+              }}
               linkedPlan={{
                 title,
                 floorAreaSqm: Math.max(15, areaReport.totalAreaSqm),
