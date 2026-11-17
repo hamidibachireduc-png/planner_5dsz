@@ -11,6 +11,7 @@ import {
   Check,
   ChevronDown,
   Columns2,
+  Compass,
   Copy,
   Crown,
   DoorOpen,
@@ -95,6 +96,12 @@ import {
 import { AlgeriaCostCalculator } from './AlgeriaCostCalculator';
 import { CameraArPreviewModal } from './CameraArPreviewModal';
 import { Canvas2D } from './Canvas2D';
+import {
+  GuidedTourOverlay,
+  GuidedTourStep,
+  isGuidedTourCompleted,
+  markGuidedTourCompleted,
+} from './GuidedTourOverlay';
 import { InvoiceModal } from './InvoiceModal';
 import { SketchToPlanModal } from './SketchToPlanModal';
 import { Viewport3D } from './Viewport3D';
@@ -178,6 +185,8 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   const [saving, setSaving] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
+  const [showGuidedTour, setShowGuidedTour] = useState<boolean>(() => !isGuidedTourCompleted());
+  const [tourStepIdx, setTourStepIdx] = useState(0);
 
   // Close mobile inspector sheet automatically if selection is cleared
   useEffect(() => {
@@ -605,6 +614,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
 
           <button
             type="button"
+            data-tour-id="tour-cost-header"
             onClick={() => {
               if (viewMode === '3d') {
                 setShow3DAreaDrawer((v) => !v);
@@ -629,7 +639,10 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
         </div>
 
         {/* Center: 2D / Split / 3D Switcher */}
-        <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 sm:p-1 rounded-lg shrink-0">
+        <div
+          data-tour-id="tour-viewport-modes"
+          className="flex items-center gap-0.5 sm:gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 sm:p-1 rounded-lg shrink-0"
+        >
           <button
             type="button"
             onClick={() => setViewMode('2d')}
@@ -716,6 +729,19 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             {isDarkTheme ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
 
+          <button
+            type="button"
+            onClick={() => {
+              setTourStepIdx(0);
+              setShowGuidedTour(true);
+            }}
+            className="hidden lg:inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+            title="بدء الجولة الإرشادية للتعرف على أدوات التصميم وحاسبة اليد العاملة والبيليات"
+          >
+            <Compass className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <span>جولة إرشادية</span>
+          </button>
+
           <input
             ref={importFileRef}
             type="file"
@@ -744,31 +770,36 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             <span>كاميرا 2D (برو)</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setFocusShowcaseInInvoice(true);
-              setShowInvoiceModal(true);
-            }}
-            className="hidden lg:inline-flex items-center gap-1 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors whitespace-nowrap shrink-0"
-            title="التقاط واختيار صور المشروع للعرض على الزبون بفاتورة تقديرية"
+          <div
+            data-tour-id="tour-client-invoice"
+            className="hidden lg:flex items-center gap-1.5 shrink-0"
           >
-            <Images className="w-3.5 h-3.5" />
-            <span>صور للزبون</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFocusShowcaseInInvoice(true);
+                setShowInvoiceModal(true);
+              }}
+              className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/30 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors whitespace-nowrap shrink-0"
+              title="التقاط واختيار صور المشروع للعرض على الزبون بفاتورة تقديرية"
+            >
+              <Images className="w-3.5 h-3.5" />
+              <span>صور للزبون</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setFocusShowcaseInInvoice(false);
-              setShowInvoiceModal(true);
-            }}
-            className="hidden lg:inline-flex items-center gap-1 rounded-lg border border-amber-300 dark:border-amber-700/70 bg-amber-50/80 dark:bg-amber-950/30 px-2.5 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors whitespace-nowrap shrink-0"
-            title="عرض وتصدير الفاتورة التقديرية وصور المشروع"
-          >
-            <Receipt className="w-3.5 h-3.5" />
-            <span>فاتورة تقديرية</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFocusShowcaseInInvoice(false);
+                setShowInvoiceModal(true);
+              }}
+              className="inline-flex items-center gap-1 rounded-lg border border-amber-300 dark:border-amber-700/70 bg-amber-50/80 dark:bg-amber-950/30 px-2.5 py-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors whitespace-nowrap shrink-0"
+              title="عرض وتصدير الفاتورة التقديرية وصور المشروع"
+            >
+              <Receipt className="w-3.5 h-3.5" />
+              <span>فاتورة تقديرية</span>
+            </button>
+          </div>
 
           <button
             type="button"
@@ -851,6 +882,19 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                 <span>إعادة</span>
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setTourStepIdx(0);
+                setShowGuidedTour(true);
+              }}
+              className="w-full flex items-center gap-2 rounded-lg px-3 py-2.5 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 text-right"
+            >
+              <Compass className="w-4 h-4 text-blue-600" />
+              <span>بدء الجولة الإرشادية لمساحة العمل</span>
+            </button>
 
             <button
               type="button"
@@ -1016,7 +1060,10 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
         {viewMode !== '3d' && (
           <aside className="hidden lg:flex w-72 shrink-0 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181B20] flex-col min-h-0 z-20">
             {/* Drafting Tools Section */}
-            <div className="p-2.5 border-b border-slate-200 dark:border-slate-800 space-y-2">
+            <div
+              data-tour-id="tour-drafting-tools"
+              className="p-2.5 border-b border-slate-200 dark:border-slate-800 space-y-2"
+            >
               <div className="flex items-center justify-between gap-1">
                 <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 truncate">
                   أدوات الرسم
@@ -1083,7 +1130,10 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
               </div>
 
               {/* Optional Structural Columns & Beams (البيليات والسوانتر) */}
-              <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800/80 space-y-1.5">
+              <div
+                data-tour-id="tour-structure-tools"
+                className="pt-1.5 border-t border-slate-100 dark:border-slate-800/80 space-y-1.5"
+              >
                 <div className="flex items-center justify-between gap-1">
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 dark:text-slate-300">
                     <Building2 className="w-3 h-3 text-slate-500" />
@@ -1538,6 +1588,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                 <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
                   <button
                     type="button"
+                    data-tour-id="tour-sidebar-cost-cta"
                     onClick={() => setShowCostModal(true)}
                     className="w-full rounded-lg bg-blue-600 hover:bg-blue-700 py-2.5 px-3 text-xs font-semibold text-white transition-colors"
                   >
@@ -2896,6 +2947,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
         {viewMode !== '3d' && (
           <button
             type="button"
+            data-tour-id="tour-mobile-tools"
             onClick={() => setMobileSheet((s) => (s === 'tools' ? null : 'tools'))}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg text-[11px] font-medium min-h-[44px] transition-colors ${
               mobileSheet === 'tools' || activeTool !== 'select'
@@ -2923,6 +2975,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
 
         <button
           type="button"
+          data-tour-id="tour-mobile-calc"
           onClick={() => setMobileSheet((s) => (s === 'calculator' ? null : 'calculator'))}
           className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg text-[11px] font-medium min-h-[44px] transition-colors ${
             mobileSheet === 'calculator'
@@ -4311,6 +4364,99 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
         onOpenProUpgrade={() => {
           setShowCameraArModal(false);
           onOpenProUpgrade?.();
+        }}
+      />
+
+      {/* Interactive Workspace Guided Tour Overlay */}
+      <GuidedTourOverlay
+        isOpen={showGuidedTour}
+        steps={[
+          {
+            id: 'viewport-modes',
+            selector: '[data-tour-id="tour-viewport-modes"]',
+            categoryLabel: 'تخطيط مساحة العمل',
+            title: 'طرق العرض المتزامنة (2D + 3D)',
+            description:
+              'تنقّل فوراً بين المخطط الهندسي الثنائي الأبعاد (2D)، العرض المزدوج، أو المجسم الثلاثي الأبعاد التفاعلي (3D). كل تعديل على الجدران أو الأثاث ينعكس لحظياً.',
+          },
+          {
+            id: 'drafting-tools',
+            selector: '[data-tour-id="tour-drafting-tools"]',
+            mobileSelector: '[data-tour-id="tour-mobile-tools"]',
+            categoryLabel: 'أدوات الرسم الهندسي',
+            title: 'رسم الغرف والجدران والقياس التلقائي',
+            description:
+              'أضف غرفاً كاملة، جدراناً، أبواباً، ونوافذ بدقة المتر مع تفعيل خيار «القياس التلقائي» لإظهار الأبعاد مباشرة أثناء الرسم.',
+            onEnter: () => {
+              if (viewMode === '3d') setViewMode('split');
+            },
+          },
+          {
+            id: 'structure-tools',
+            selector: '[data-tour-id="tour-structure-tools"]',
+            mobileSelector: '[data-tour-id="tour-mobile-tools"]',
+            categoryLabel: 'أدوات البناء والخرسانة',
+            title: 'أعمدة البناء (البيليات والسوانتر)',
+            description:
+              'ضع أعمدة الخرسانة (بيلي) والكمرات العلوية (سانتر) يدوياً في أي نقطة، أو استخدم التوزيع التلقائي لتثبيت الأعمدة على زوايا الغرف والجدران.',
+            onEnter: () => {
+              if (viewMode === '3d') setViewMode('split');
+            },
+            actionLabel: 'توزيع البيليات والسوانتر تلقائياً الآن',
+            onAction: () => {
+              const generated = generateAutoColumnsAndBeams(floorPlan);
+              updateFloorPlan(
+                {
+                  ...floorPlan,
+                  columns: generated.columns,
+                  beams: generated.beams,
+                  showStructureLayer: true,
+                },
+                true
+              );
+            },
+          },
+          {
+            id: 'labor-calculator',
+            selector: '[data-tour-id="tour-sidebar-cost-cta"]',
+            mobileSelector: '[data-tour-id="tour-mobile-calc"]',
+            categoryLabel: 'حاسبة اليد العاملة الذكية',
+            title: 'حساب اليد العاملة بالمتر والبيلي والسانتر والدالة',
+            description:
+              'من هنا تفتح حاسبة السوق الجزائري المحدثة مع الحاسبة الذكية لليد العاملة بالمتر (بناء وتلبيس الجدار، البيلي، السانتر، الدالة الكاملة، والبلاط والدهان) إضافة إلى التعديل المباشر لاقتراحات المخطط.',
+            onEnter: () => {
+              if (viewMode === '3d') setViewMode('split');
+              setSidebarTab('calculator');
+            },
+            actionLabel: 'فتح حاسبة اليد العاملة الذكية الآن',
+            onAction: () => {
+              markGuidedTourCompleted();
+              setShowGuidedTour(false);
+              setShowCostModal(true);
+            },
+          },
+          {
+            id: 'client-invoice',
+            selector: '[data-tour-id="tour-client-invoice"]',
+            mobileSelector: '[data-tour-id="tour-cost-header"]',
+            categoryLabel: 'التصدير والزبائن',
+            title: 'صور المشروع للزبون والفاتورة التقديرية PDF',
+            description:
+              'التقط ورتب صور المشروع (2D و3D أو صوراً مرفوعة) وأصدر فاتورة تقديرية شاملة بصيغة PDF لعرضها على الزبون مع التنبيه بأن القيم تقديرية وليست نهائية.',
+            actionLabel: 'فتح معرض صور الزبون والفاتورة التقديرية',
+            onAction: () => {
+              markGuidedTourCompleted();
+              setShowGuidedTour(false);
+              setFocusShowcaseInInvoice(true);
+              setShowInvoiceModal(true);
+            },
+          },
+        ]}
+        currentStepIdx={tourStepIdx}
+        onChangeStep={setTourStepIdx}
+        onFinish={() => {
+          markGuidedTourCompleted();
+          setShowGuidedTour(false);
         }}
       />
     </div>

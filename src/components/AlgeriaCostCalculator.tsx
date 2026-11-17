@@ -2,11 +2,13 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowDownRight,
   ArrowUpRight,
+  Building2,
   Calculator,
   Check,
   Download,
   ExternalLink,
   Minus,
+  Pencil,
   Plus,
   Printer,
   Receipt,
@@ -16,11 +18,14 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { FloorPlanData } from '../types/planner';
+import { FLOOR_STYLES } from '../data/catalog';
+import { FloorPlanData, RoomFloorStyle } from '../types/planner';
 import {
   GeneratedPlanVariant,
   generateEstimatedFloorPlanVariants,
 } from '../utils/estimatePlanGenerator';
+import { resizeRoomWithWalls } from '../utils/roomWallUtils';
+import { generateAutoColumnsAndBeams } from '../utils/structureUtils';
 import { InvoiceModal } from './InvoiceModal';
 import { TemplateBlueprintPreview } from './TemplateBlueprintPreview';
 import {
@@ -1445,6 +1450,35 @@ const EstimatedLayoutPickerModal: React.FC<EstimatedLayoutPickerModalProps> = ({
   onSelectVariant,
 }) => {
   const variants = useMemo(() => generateEstimatedFloorPlanVariants(inputs), [inputs]);
+  const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
+  const [editedPlans, setEditedPlans] = useState<Record<string, FloorPlanData>>({});
+  const [editedTitles, setEditedTitles] = useState<Record<string, string>>({});
+
+  const updateEditedPlan = useCallback(
+    (variantId: string, updater: (prev: FloorPlanData) => FloorPlanData, basePlan: FloorPlanData) => {
+      setEditedPlans((prev) => {
+        const current = prev[variantId] ?? basePlan;
+        return {
+          ...prev,
+          [variantId]: updater(current),
+        };
+      });
+    },
+    []
+  );
+
+  const resetVariantEdits = useCallback((variantId: string) => {
+    setEditedPlans((prev) => {
+      const next = { ...prev };
+      delete next[variantId];
+      return next;
+    });
+    setEditedTitles((prev) => {
+      const next = { ...prev };
+      delete next[variantId];
+      return next;
+    });
+  }, []);
 
   return (
     <div
@@ -1464,7 +1498,7 @@ const EstimatedLayoutPickerModal: React.FC<EstimatedLayoutPickerModalProps> = ({
               احتمالات توزيع الغرف والمطبخ والصالة ({inputs.floorAreaSqm} م²)
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              تم توليد 4 مقترحات معمارية بالعدد الدقيق للغرف والفضاءات المختارة — اختر الاحتمال الأنسب لفتحه وتعديله في الاستوديو.
+              تم توليد 4 مقترحات معمارية بالعدد الدقيق للغرف والفضاءات المختارة — يمكنك التعديل المباشر على أي اقتراح أو فتحه فوراً في الاستوديو.
             </p>
           </div>
           <button
@@ -1478,64 +1512,313 @@ const EstimatedLayoutPickerModal: React.FC<EstimatedLayoutPickerModalProps> = ({
         </div>
 
         <div className="p-4 sm:p-5 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4">
-          {variants.map((variant) => (
-            <div
-              key={variant.id}
-              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 overflow-hidden flex flex-col justify-between hover:border-blue-500 dark:hover:border-blue-500 transition-colors"
-            >
-              <div>
-                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-2 bg-white dark:bg-[#181B20]">
-                  <div>
-                    <div className="text-sm font-bold text-slate-900 dark:text-white">
-                      {variant.title}
+          {variants.map((variant) => {
+            const currentPlan = editedPlans[variant.id] ?? variant.floorPlan;
+            const currentTitle = editedTitles[variant.id] ?? variant.title;
+            const isEditing = editingVariantId === variant.id;
+            const isModified = Boolean(editedPlans[variant.id] || editedTitles[variant.id]);
+            const liveAreaSqm = Number(
+              currentPlan.rooms.reduce((sum, r) => sum + r.width * r.depth, 0).toFixed(1)
+            );
+            const columnsCount = currentPlan.columns?.length ?? 0;
+
+            return (
+              <div
+                key={variant.id}
+                className={`rounded-xl border bg-slate-50/50 dark:bg-slate-900/40 overflow-hidden flex flex-col justify-between transition-colors ${
+                  isEditing
+                    ? 'border-blue-600 dark:border-blue-500 ring-1 ring-blue-500/20'
+                    : 'border-slate-200 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-500'
+                }`}
+              >
+                <div>
+                  <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-2 bg-white dark:bg-[#181B20]">
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                        {currentTitle}
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                        {variant.subtitle}
+                      </p>
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-                      {variant.subtitle}
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-md bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900 px-2 py-0.5 text-[10px] font-bold text-blue-700 dark:text-blue-300">
-                    {variant.badge}
-                  </span>
-                </div>
-
-                <div className="h-56 w-full border-b border-slate-200 dark:border-slate-800 bg-[#FAF8F4] dark:bg-[#14181F]">
-                  <TemplateBlueprintPreview
-                    floorPlan={variant.floorPlan}
-                    showRoomLabels={true}
-                  />
-                </div>
-
-                <div className="p-3.5 space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold">
-                    <span className="text-slate-800 dark:text-slate-200">
-                      {variant.roomsSummary}
-                    </span>
-                    <span className="font-mono-nums text-blue-700 dark:text-blue-400">
-                      {variant.totalAreaSqm} م² · {variant.floorPlan.rooms.length} فضاء
+                    <span className="shrink-0 text-[11px] font-semibold text-blue-700 dark:text-blue-300">
+                      {isModified ? 'معدّل' : variant.badge}
                     </span>
                   </div>
-                  <ul className="space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
-                    {variant.placementNotes.map((note, idx) => (
-                      <li key={idx} className="flex items-start gap-1.5">
-                        <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-                        <span>{note}</span>
-                      </li>
-                    ))}
-                  </ul>
+
+                  <div className="h-56 w-full border-b border-slate-200 dark:border-slate-800 bg-[#FAF8F4] dark:bg-[#14181F]">
+                    <TemplateBlueprintPreview
+                      floorPlan={currentPlan}
+                      showRoomLabels={true}
+                    />
+                  </div>
+
+                  <div className="p-3.5 space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold">
+                      <span className="text-slate-800 dark:text-slate-200">
+                        {variant.roomsSummary}
+                      </span>
+                      <span className="font-mono-nums text-blue-700 dark:text-blue-400">
+                        {liveAreaSqm} م² · {currentPlan.rooms.length} فضاء
+                        {columnsCount > 0 ? ` · ${columnsCount} بيلي` : ''}
+                      </span>
+                    </div>
+
+                    {isEditing ? (
+                      <div className="rounded-lg border border-blue-200 dark:border-blue-900/70 bg-white dark:bg-[#14171D] p-3 space-y-2.5 text-xs">
+                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
+                          <span className="font-bold text-blue-700 dark:text-blue-300 inline-flex items-center gap-1.5">
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span>التعديل المباشر للاقتراح</span>
+                          </span>
+                          {isModified && (
+                            <button
+                              type="button"
+                              onClick={() => resetVariantEdits(variant.id)}
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>إرجاع للأصل</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div className="sm:col-span-2">
+                            <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                              عنوان الاقتراح
+                            </label>
+                            <input
+                              type="text"
+                              value={currentTitle}
+                              onChange={(e) =>
+                                setEditedTitles((prev) => ({
+                                  ...prev,
+                                  [variant.id]: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 py-1 text-xs text-slate-900 dark:text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-1">
+                              ارتفاع الجدران (m)
+                            </label>
+                            <input
+                              type="number"
+                              step={0.1}
+                              min={2.2}
+                              max={5.5}
+                              value={currentPlan.wallHeight || 2.85}
+                              onChange={(e) => {
+                                const nextH = Math.max(
+                                  2.2,
+                                  Math.min(5.5, Number(e.target.value) || 2.85)
+                                );
+                                updateEditedPlan(
+                                  variant.id,
+                                  (prev) => ({ ...prev, wallHeight: nextH }),
+                                  variant.floorPlan
+                                );
+                              }}
+                              className="w-full rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-2 py-1 text-xs font-mono-nums text-slate-900 dark:text-white"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Structural columns & beams quick toggle */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-slate-50 dark:bg-slate-900/70 px-2.5 py-1.5 border border-slate-200 dark:border-slate-800">
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-700 dark:text-slate-200">
+                            <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                            <span>
+                              أعمدة البناء (البيليات والسوانتر):{' '}
+                              <strong className="font-mono-nums">{columnsCount}</strong>
+                            </span>
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateEditedPlan(
+                                  variant.id,
+                                  (prev) => {
+                                    const gen = generateAutoColumnsAndBeams(prev);
+                                    return {
+                                      ...prev,
+                                      columns: gen.columns,
+                                      beams: gen.beams,
+                                      showStructureLayer: true,
+                                    };
+                                  },
+                                  variant.floorPlan
+                                )
+                              }
+                              className="rounded border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300 hover:bg-blue-100"
+                            >
+                              توزيع تلقائي
+                            </button>
+                            {columnsCount > 0 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateEditedPlan(
+                                    variant.id,
+                                    (prev) => ({
+                                      ...prev,
+                                      columns: [],
+                                      beams: [],
+                                    }),
+                                    variant.floorPlan
+                                  )
+                                }
+                                className="rounded border border-slate-200 dark:border-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                              >
+                                إزالة
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Rooms direct dimensions & style rows */}
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto studio-scroll pr-0.5">
+                          {currentPlan.rooms.map((room) => (
+                            <div
+                              key={room.id}
+                              className="grid grid-cols-12 gap-1.5 items-center rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 p-1.5"
+                            >
+                              <input
+                                type="text"
+                                value={room.name}
+                                aria-label={`اسم ${room.name}`}
+                                onChange={(e) => {
+                                  const nextName = e.target.value;
+                                  updateEditedPlan(
+                                    variant.id,
+                                    (prev) => ({
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) =>
+                                        r.id === room.id ? { ...r, name: nextName } : r
+                                      ),
+                                    }),
+                                    variant.floorPlan
+                                  );
+                                }}
+                                className="col-span-4 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-1.5 py-1 text-[11px] font-medium text-slate-900 dark:text-white"
+                              />
+                              <input
+                                type="number"
+                                step={0.1}
+                                min={1.2}
+                                max={20}
+                                value={Number(room.width.toFixed(2))}
+                                title="العرض (متر)"
+                                aria-label={`عرض ${room.name}`}
+                                onChange={(e) => {
+                                  const nextW = Math.max(1.2, Math.min(20, Number(e.target.value) || room.width));
+                                  updateEditedPlan(
+                                    variant.id,
+                                    (prev) => resizeRoomWithWalls(prev, room.id, nextW, room.depth),
+                                    variant.floorPlan
+                                  );
+                                }}
+                                className="col-span-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-1 py-1 text-[11px] font-mono-nums text-center text-slate-900 dark:text-white"
+                              />
+                              <input
+                                type="number"
+                                step={0.1}
+                                min={1.2}
+                                max={20}
+                                value={Number(room.depth.toFixed(2))}
+                                title="الطول (متر)"
+                                aria-label={`طول ${room.name}`}
+                                onChange={(e) => {
+                                  const nextD = Math.max(1.2, Math.min(20, Number(e.target.value) || room.depth));
+                                  updateEditedPlan(
+                                    variant.id,
+                                    (prev) => resizeRoomWithWalls(prev, room.id, room.width, nextD),
+                                    variant.floorPlan
+                                  );
+                                }}
+                                className="col-span-2 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-1 py-1 text-[11px] font-mono-nums text-center text-slate-900 dark:text-white"
+                              />
+                              <select
+                                value={room.floorStyle}
+                                aria-label={`أرضية ${room.name}`}
+                                onChange={(e) => {
+                                  const style = e.target.value as RoomFloorStyle;
+                                  updateEditedPlan(
+                                    variant.id,
+                                    (prev) => ({
+                                      ...prev,
+                                      rooms: prev.rooms.map((r) =>
+                                        r.id === room.id ? { ...r, floorStyle: style } : r
+                                      ),
+                                    }),
+                                    variant.floorPlan
+                                  );
+                                }}
+                                className="col-span-3 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-1 py-1 text-[10px] text-slate-800 dark:text-slate-200"
+                              >
+                                {FLOOR_STYLES.map((fs) => (
+                                  <option key={fs.id} value={fs.id}>
+                                    {fs.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <span className="col-span-1 text-[10px] font-mono-nums text-slate-500 dark:text-slate-400 text-left">
+                                {(room.width * room.depth).toFixed(0)}م²
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <ul className="space-y-1 text-[11px] text-slate-600 dark:text-slate-300">
+                        {variant.placementNotes.map((note, idx) => (
+                          <li key={idx} className="flex items-start gap-1.5">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                            <span>{note}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+
+                <div className="px-3.5 pb-3.5 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingVariantId((prev) => (prev === variant.id ? null : variant.id))
+                    }
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 min-h-[36px] ${
+                      isEditing
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300'
+                        : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    {isEditing ? <Check className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
+                    <span>{isEditing ? 'حفظ التعديل' : 'تعديل مباشر'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onSelectVariant({
+                        ...variant,
+                        title: currentTitle,
+                        totalAreaSqm: liveAreaSqm,
+                        floorPlan: currentPlan,
+                      })
+                    }
+                    className="flex-1 rounded-lg bg-slate-900 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white py-2 px-3 text-xs font-semibold transition-colors whitespace-nowrap min-h-[36px]"
+                  >
+                    تصميم وفتح في الاستوديو
+                  </button>
                 </div>
               </div>
-
-              <div className="px-3.5 pb-3.5">
-                <button
-                  type="button"
-                  onClick={() => onSelectVariant(variant)}
-                  className="w-full rounded-lg bg-slate-900 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500 text-white py-2 text-xs font-semibold transition-colors"
-                >
-                  تصميم وفتح هذا الاحتمال في الاستوديو
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
