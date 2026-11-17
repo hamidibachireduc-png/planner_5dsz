@@ -165,7 +165,7 @@ export function downloadProjectToDevice(project: {
   const payload = {
     format: 'bachir5d_project_v2',
     exportedAt: new Date().toISOString(),
-    brandName: project.brandName || 'خدمات انشاء حميدي البشير',
+    brandName: project.brandName || 'داري',
     title: project.title || 'تصميم منزل',
     templateKey: project.templateKey,
     roomCount: metrics.roomCount,
@@ -179,7 +179,7 @@ export function downloadAllProjectsBackup(projects: ProjectRecord[], brandName?:
   const payload = {
     format: 'bachir5d_backup_v2',
     exportedAt: new Date().toISOString(),
-    brandName: brandName || 'خدمات انشاء حميدي البشير',
+    brandName: brandName || 'داري',
     count: projects.length,
     projects: projects.map((p) => ({
       id: p.id,

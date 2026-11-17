@@ -289,7 +289,7 @@ export async function loadUserStudioSettings(userId: string): Promise<UserStudio
     const data = snap.data();
     return {
       ownerId: String(data.ownerId),
-      brandName: String(data.brandName || 'خدمات انشاء حميدي البشير'),
+      brandName: String(data.brandName || 'داري'),
       preferredUnit: data.preferredUnit === 'ft' ? 'ft' : 'm',
     };
   } catch (error) {
@@ -303,7 +303,7 @@ export async function saveUserStudioSettings(
   preferredUnit: UnitType
 ): Promise<void> {
   const path = `userSettings/${userId}`;
-  const cleanBrand = brandName.trim().slice(0, 80) || 'خدمات انشاء حميدي البشير';
+  const cleanBrand = brandName.trim().slice(0, 80) || 'داري';
   try {
     const existingSnap = await getDoc(doc(db, 'userSettings', userId));
     if (existingSnap.exists()) {
@@ -360,12 +360,12 @@ export function deleteGuestProject(projectId: string): ProjectRecord[] {
 
 export function loadLocalBrandName(): string {
   const saved = localStorage.getItem(LOCAL_BRAND_KEY);
-  if (!saved || saved === 'بشير 5D') return 'خدمات انشاء حميدي البشير';
+  if (!saved || saved === 'بشير 5D' || saved === 'خدمات انشاء حميدي البشير') return 'داري';
   return saved;
 }
 
 export function saveLocalBrandName(name: string): void {
-  localStorage.setItem(LOCAL_BRAND_KEY, name.trim().slice(0, 80) || 'خدمات انشاء حميدي البشير');
+  localStorage.setItem(LOCAL_BRAND_KEY, name.trim().slice(0, 80) || 'داري');
 }
 
 export const ADMIN_EMAIL = 'bachirofsat@gmail.com';

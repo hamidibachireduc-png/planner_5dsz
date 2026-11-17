@@ -279,17 +279,24 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
       {/* Strict 3-Zone Top Bar Contract (Desktop) + Clean Mobile Menu */}
       <header className="border-b border-slate-200/80 dark:border-slate-800 bg-[#F7F6F2]/95 dark:bg-[#111315]/95 sticky top-0 z-30">
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3 sm:gap-8">
-          {/* Zone 1: Official Circular Emblem + Single-line Brand Wordmark */}
+          {/* Zone 1: Official Circular Emblem + App Title & Creator Subtitle */}
           <a
             href="#top"
-            className="inline-flex items-center gap-2 sm:gap-2.5 font-display text-sm sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white min-w-0 shrink"
+            className="inline-flex items-center gap-2 sm:gap-2.5 min-w-0 shrink"
           >
             <img
               src={BRAND_LOGO_URL}
               alt={brandName}
               className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border border-amber-600/40 shrink-0"
             />
-            <span className="truncate">{brandName}</span>
+            <div className="min-w-0">
+              <div className="font-display text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white leading-tight truncate">
+                {brandName}
+              </div>
+              <div className="text-[10px] sm:text-[11px] font-medium text-slate-600 dark:text-slate-300 leading-tight truncate">
+                من إعداد وتصميم الأستاذ حميدي البشير · هاتف: <span dir="ltr" className="font-mono-nums">0696380965</span>
+              </div>
+            </div>
           </a>
 
           {/* Zone 2: 5 Concise Single-Line Nav Links */}
@@ -495,11 +502,19 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
         <section className="pt-12 pb-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
             <div className="lg:col-span-5 flex flex-col justify-between py-2">
-              <div className="space-y-5">
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  استوديو التصميم المعماري ثنائي وثلاثي الأبعاد · {brandName}
-                </p>
-                <h1 className="font-display font-bold text-[clamp(2.1rem,3.6vw,3.1rem)] leading-[1.2] text-slate-900 dark:text-white [text-wrap:balance]">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <div className="font-display text-2xl sm:text-3xl font-bold text-blue-700 dark:text-blue-400">
+                    {brandName}
+                  </div>
+                  <p className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    من إعداد وتصميم الأستاذ حميدي البشير · رقم الهاتف:{' '}
+                    <span dir="ltr" className="font-mono-nums text-blue-700 dark:text-blue-400">
+                      0696380965
+                    </span>
+                  </p>
+                </div>
+                <h1 className="font-display font-bold text-[clamp(2rem,3.4vw,2.9rem)] leading-[1.2] text-slate-900 dark:text-white [text-wrap:balance]">
                   صمّم مخطط منزلك الهندسي واستعرضه بالبعد الثلاثي فوراً
                 </h1>
                 <p className="text-base leading-relaxed text-slate-600 dark:text-slate-300 max-w-xl">
@@ -1374,7 +1389,7 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
                 value={brandDraft}
                 onChange={(e) => setBrandDraft(e.target.value)}
                 maxLength={60}
-                placeholder="مثال: بشير 5D"
+                placeholder="مثال: داري"
                 className="w-56 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3.5 py-2 text-sm text-slate-900 dark:text-white focus:border-blue-500 focus:outline-none"
               />
               <button
@@ -1400,13 +1415,20 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
       {/* Quiet Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800 py-8 mt-6">
         <div className="max-w-[1200px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400">
-          <div className="inline-flex items-center gap-2 font-display font-bold text-sm text-slate-800 dark:text-slate-200">
+          <div className="inline-flex items-center gap-2.5">
             <img
               src={BRAND_LOGO_URL}
               alt={brandName}
-              className="w-7 h-7 rounded-full object-cover border border-amber-600/40 shrink-0"
+              className="w-8 h-8 rounded-full object-cover border border-amber-600/40 shrink-0"
             />
-            <span>{brandName}</span>
+            <div>
+              <div className="font-display font-bold text-sm text-slate-800 dark:text-slate-200 leading-tight">
+                {brandName}
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                من إعداد وتصميم الأستاذ حميدي البشير · رقم الهاتف: <span dir="ltr" className="font-mono-nums">0696380965</span>
+              </div>
+            </div>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-5">
             <a href="#templates" className="hover:text-slate-900 dark:hover:text-white">
@@ -1444,7 +1466,7 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
               الهوية
             </a>
           </div>
-          <div>© {new Date().getFullYear()} {brandName} · منصة التصميم المعماري</div>
+          <div>© {new Date().getFullYear()} {brandName} · إعداد وتصميم الأستاذ حميدي البشير (0696380965)</div>
         </div>
       </footer>
 

@@ -598,9 +598,14 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             className="w-8 h-8 rounded-full object-cover border border-amber-600/40 shrink-0 hidden sm:block"
           />
 
-          <span className="font-display font-bold text-sm text-blue-700 dark:text-blue-400 hidden xl:inline whitespace-nowrap shrink-0">
-            {brandName}
-          </span>
+          <div className="hidden xl:flex flex-col leading-tight shrink-0">
+            <span className="font-display font-bold text-sm text-blue-700 dark:text-blue-400 whitespace-nowrap">
+              {brandName}
+            </span>
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+              من إعداد وتصميم الأستاذ حميدي البشير · <span dir="ltr" className="font-mono-nums">0696380965</span>
+            </span>
+          </div>
 
           <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden xl:block" />
 

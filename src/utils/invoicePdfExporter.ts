@@ -100,7 +100,7 @@ function drawFooter(
   ctx.fillStyle = '#475569';
   ctx.textAlign = 'right';
   ctx.fillText(
-    `${brandName} · هاتف/واتساب: 0696380965 · BaridiMob RIP: 00799999000468867263`,
+    `${brandName} · من إعداد وتصميم الأستاذ حميدي البشير · هاتف: 0696380965 · BaridiMob RIP: 00799999000468867263`,
     PAGE_W - MARGIN_X,
     PAGE_H - 58
   );

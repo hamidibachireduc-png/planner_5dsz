@@ -1426,7 +1426,7 @@ export const AlgeriaCostCalculator: React.FC<AlgeriaCostCalculatorProps> = ({
 
       {showInvoiceModal && (
         <InvoiceModal
-          brandName="خدمات انشاء حميدي البشير"
+          brandName="داري"
           projectTitle={linkedPlan?.title || `مقايسة مشروع بمساحة ${inputs.floorAreaSqm} م²`}
           initialAreaSqm={inputs.floorAreaSqm}
           initialWallLengthM={inputs.wallLengthM}

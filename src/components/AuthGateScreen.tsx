@@ -72,13 +72,20 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({
       {/* Clean Minimal Top Bar */}
       <header className="border-b border-slate-200/80 dark:border-slate-800 bg-[#F7F6F2]/95 dark:bg-[#111315]/95">
         <div className="max-w-[1160px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3 sm:gap-6">
-          <div className="inline-flex items-center gap-2 sm:gap-2.5 font-display text-sm sm:text-lg font-bold text-slate-900 dark:text-white min-w-0 shrink">
+          <div className="inline-flex items-center gap-2 sm:gap-2.5 min-w-0 shrink">
             <img
               src={BRAND_LOGO_URL}
               alt={brandName}
               className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover border border-amber-600/40 shrink-0"
             />
-            <span className="truncate">{brandName}</span>
+            <div className="min-w-0">
+              <div className="font-display text-base sm:text-xl font-bold text-slate-900 dark:text-white leading-tight truncate">
+                {brandName}
+              </div>
+              <div className="text-[10px] sm:text-xs font-medium text-slate-600 dark:text-slate-300 leading-tight truncate">
+                من إعداد وتصميم الأستاذ حميدي البشير · رقم الهاتف: <span dir="ltr" className="font-mono-nums">0696380965</span>
+              </div>
+            </div>
           </div>
 
           <button
@@ -102,13 +109,20 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/20 p-6 sm:p-8 flex flex-col justify-between">
-              <div className="inline-flex items-center gap-2 text-xs font-medium text-white/90">
+              <div className="inline-flex items-center gap-2.5 text-white/95">
                 <img
                   src={BRAND_LOGO_URL}
                   alt={brandName}
-                  className="w-10 h-10 rounded-full object-cover border border-amber-400/60"
+                  className="w-10 h-10 rounded-full object-cover border border-amber-400/60 shrink-0"
                 />
-                <span>منصة {brandName}</span>
+                <div className="min-w-0">
+                  <div className="font-display text-base font-bold text-white leading-tight">
+                    {brandName}
+                  </div>
+                  <div className="text-[11px] text-amber-200/95 font-medium leading-tight">
+                    من إعداد وتصميم الأستاذ حميدي البشير · رقم الهاتف: <span dir="ltr" className="font-mono-nums">0696380965</span>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-3">

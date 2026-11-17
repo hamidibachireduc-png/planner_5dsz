@@ -117,7 +117,7 @@ export default function App() {
 
   // Keep page <title> aligned with personalized brand name
   useEffect(() => {
-    document.title = `${brandName} | استوديو تصميم المنازل والمخططات 2D و 3D`;
+    document.title = `${brandName} | من إعداد وتصميم الأستاذ حميدي البشير · 0696380965`;
   }, [brandName]);
 
   // Sync subscribers from optional Node backend if running (silently skips on static GitHub Pages)
@@ -170,7 +170,7 @@ export default function App() {
   };
 
   const handleUpdateBrandName = async (nextName: string) => {
-    const cleaned = nextName.trim() || 'خدمات انشاء حميدي البشير';
+    const cleaned = nextName.trim() || 'داري';
     setBrandName(cleaned);
     saveLocalBrandName(cleaned);
   };

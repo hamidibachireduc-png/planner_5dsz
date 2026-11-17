@@ -465,12 +465,12 @@ export function deleteLocalProject(projectId: string): ProjectRecord[] {
 
 export function loadLocalBrandName(): string {
   const saved = localStorage.getItem(STORAGE_BRAND_KEY);
-  if (!saved || saved === 'بشير 5D') return 'خدمات انشاء حميدي البشير';
+  if (!saved || saved === 'بشير 5D' || saved === 'خدمات انشاء حميدي البشير') return 'داري';
   return saved;
 }
 
 export function saveLocalBrandName(name: string): void {
-  localStorage.setItem(STORAGE_BRAND_KEY, name.trim().slice(0, 80) || 'خدمات انشاء حميدي البشير');
+  localStorage.setItem(STORAGE_BRAND_KEY, name.trim().slice(0, 80) || 'داري');
 }
 
 export function loadFacebookUrl(): string {
