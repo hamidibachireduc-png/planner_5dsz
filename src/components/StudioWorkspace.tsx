@@ -103,6 +103,7 @@ import {
   markGuidedTourCompleted,
 } from './GuidedTourOverlay';
 import { InvoiceModal } from './InvoiceModal';
+import { PWAInstallButton } from './PWAInstallButton';
 import { SketchToPlanModal } from './SketchToPlanModal';
 import { Viewport3D } from './Viewport3D';
 import { exportFloorPlanToPdf } from '../utils/pdfExporter';
@@ -733,6 +734,8 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
           >
             {isDarkTheme ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
+
+          <PWAInstallButton compact className="hidden xl:inline-flex" />
 
           <button
             type="button"

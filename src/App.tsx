@@ -8,6 +8,7 @@ import { Crown, LogOut, X } from 'lucide-react';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { AuthGateScreen } from './components/AuthGateScreen';
 import { LandingShowcase } from './components/LandingShowcase';
+import { OfflineIndicator } from './components/PWAInstallButton';
 import { ProSubscribeModal } from './components/ProSubscribeModal';
 import { SketchToPlanModal } from './components/SketchToPlanModal';
 import { StudioWorkspace } from './components/StudioWorkspace';
@@ -620,6 +621,8 @@ export default function App() {
           onLogout={handleSignOut}
         />
       )}
+
+      <OfflineIndicator />
     </>
   );
 }

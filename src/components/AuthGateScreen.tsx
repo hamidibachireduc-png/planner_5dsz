@@ -21,6 +21,7 @@ import {
 } from '../utils/authStore';
 import { ProSubscribeModal } from './ProSubscribeModal';
 import { FLEXY_PHONE, WHATSAPP_INTL } from './ProSubscriptionSection';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface AuthGateScreenProps {
   brandName: string;
@@ -88,14 +89,17 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onToggleTheme}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
-          >
-            {isDarkTheme ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-            <span>{isDarkTheme ? 'الوضع الفاتح' : 'الوضع الداكن'}</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <PWAInstallButton compact />
+            <button
+              type="button"
+              onClick={onToggleTheme}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0"
+            >
+              {isDarkTheme ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              <span>{isDarkTheme ? 'الوضع الفاتح' : 'الوضع الداكن'}</span>
+            </button>
+          </div>
         </div>
       </header>
 

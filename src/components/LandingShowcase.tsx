@@ -55,6 +55,7 @@ import {
 } from './AlgeriaCostCalculator';
 import { ProSubscribeModal } from './ProSubscribeModal';
 import { ProSubscriptionSection } from './ProSubscriptionSection';
+import { PWAInstallButton } from './PWAInstallButton';
 import { TemplateBlueprintPreview } from './TemplateBlueprintPreview';
 
 interface LandingShowcaseProps {
@@ -334,8 +335,9 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
             </button>
           </nav>
 
-          {/* Zone 3: 1 Primary Action + Mobile Menu Trigger */}
+          {/* Zone 3: App Install + 1 Primary Action + Mobile Menu Trigger */}
           <div className="flex items-center gap-2 shrink-0">
+            <PWAInstallButton compact className="hidden sm:inline-flex" />
             <button
               type="button"
               onClick={onOpenNewBlank}
@@ -406,6 +408,9 @@ export const LandingShowcase: React.FC<LandingShowcaseProps> = ({
             >
               الاشتراك في باقة برو (Pro)
             </button>
+            <div className="pt-2">
+              <PWAInstallButton className="w-full" />
+            </div>
             <div className="pt-2 mt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
               <button
                 type="button"
